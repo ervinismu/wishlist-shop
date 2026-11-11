@@ -30,6 +30,15 @@ export function createStore({ file } = {}) {
       return data.wishlist.map((entry) => ({ ...entry }));
     },
 
+    // Adds a product to the wishlist. Returns the new entry, or null if it is already there.
+    addToWishlist(productId) {
+      if (data.wishlist.some((entry) => entry.productId === productId)) return null;
+      const entry = { productId, addedAt: new Date().toISOString() };
+      data.wishlist.push(entry);
+      save();
+      return { ...entry };
+    },
+
     // Replace all data. Used by tests to set up a known state.
     reset(newData = EMPTY()) {
       data = { ...EMPTY(), ...structuredClone(newData) };

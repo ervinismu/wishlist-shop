@@ -79,6 +79,18 @@ const routes = [
   }],
 
   ['GET', '/api/wishlist', ({ store }) => ({ items: wishlistView(store) })],
+
+  ['POST', '/api/wishlist', async ({ req, store }) => {
+    const { productId } = (await readJsonBody(req)) ?? {};
+    if (typeof productId !== 'string' || productId === '') {
+      throw new HttpError(400, 'productId must be a string');
+    }
+    const product = findProduct(productId);
+    if (!product) throw new HttpError(404, 'Product not found');
+    const entry = store.addToWishlist(productId);
+    if (!entry) throw new HttpError(409, 'Product is already in your wishlist');
+    return { status: 201, body: { item: { ...entry, product } } };
+  }],
 ];
 
 function matchRoute(method, pathname) {
