@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wishlist Shop</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1>Wishlist Shop</h1>
+    <p class="tagline">Find something nice. Save it for later.</p>
+  </header>
+
+  <main class="layout">
+    <section aria-labelledby="products-title">
+      <h2 id="products-title">Products</h2>
+      <p class="status" id="products-status">Loading products…</p>
+      <ul class="product-grid" id="product-list" data-testid="product-list"></ul>
+    </section>
+
+    <aside class="wishlist" aria-labelledby="wishlist-title">
+      <h2 id="wishlist-title">Your wishlist</h2>
+      <p class="status" id="wishlist-status">Loading…</p>
+      <ul class="wishlist-items" id="wishlist-list" data-testid="wishlist-list"></ul>
+    </aside>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

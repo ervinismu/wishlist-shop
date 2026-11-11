@@ -1,0 +1,5 @@
+node_modules/
+data/
+.factory/
+.DS_Store
+*.log

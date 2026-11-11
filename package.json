@@ -1,0 +1,16 @@
+{
+  "name": "wishlist-shop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A small shop with a wishlist. Sample project for a software factory.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "lint": "for f in src/*.js public/*.js test/*.js; do node --check \"$f\" || exit 1; done && echo 'lint ok'"
+  }
+}

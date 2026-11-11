@@ -1,0 +1,97 @@
+:root {
+  --bg: #faf8f5;
+  --surface: #ffffff;
+  --text: #2b2724;
+  --muted: #6f6862;
+  --border: #e6e0d9;
+  --accent: #b4552d;
+  --radius: 12px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; }
+
+.site-header {
+  padding: 32px 24px 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.site-header h1 { margin: 0; font-size: 28px; color: var(--accent); }
+.tagline { margin: 4px 0 0; color: var(--muted); }
+
+.layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px 24px 48px;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 32px;
+  align-items: start;
+}
+
+h2 { font-size: 18px; margin: 0 0 12px; }
+.status { color: var(--muted); }
+
+.product-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+}
+
+.product-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.product-name { margin: 0; font-size: 16px; }
+.product-description { margin: 0; color: var(--muted); font-size: 14px; flex: 1; }
+.product-price { margin: 0; font-weight: 600; }
+
+button {
+  font: inherit;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+button.secondary { background: transparent; color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
+
+.wishlist {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+.wishlist-items { list-style: none; padding: 0; margin: 0; }
+.wishlist-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.wishlist-item:last-child { border-bottom: 0; }
+
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+  .wishlist { position: static; }
+}
