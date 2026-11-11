@@ -35,9 +35,12 @@ async function addToWishlist(productId) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productId }),
     });
-    if (!res.ok && res.status !== 409) {
+    if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `Request failed (${res.status})`);
+      const message = body.error || `Request failed (${res.status})`;
+      if (res.status !== 409) throw new Error(message);
+      // 409: already in the list, or the list is full. Show why, then refresh.
+      actionStatus.textContent = message;
     }
     const { items } = await getJson('/api/wishlist');
     renderWishlist(items);

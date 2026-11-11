@@ -8,6 +8,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { findProduct, products } from './products.js';
+import { MAX_WISHLIST_ITEMS } from './store.js';
 
 const PUBLIC_DIR = resolve(fileURLToPath(new URL('../public', import.meta.url)));
 const MAX_BODY_BYTES = 100_000;
@@ -87,6 +88,9 @@ const routes = [
     }
     const product = findProduct(productId);
     if (!product) throw new HttpError(404, 'Product not found');
+    if (store.countWishlist() >= MAX_WISHLIST_ITEMS) {
+      throw new HttpError(409, `Your wishlist is full (${MAX_WISHLIST_ITEMS} items)`);
+    }
     const entry = store.addToWishlist(productId);
     if (!entry) throw new HttpError(409, 'Product is already in your wishlist');
     return { status: 201, body: { item: { ...entry, product } } };
