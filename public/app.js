@@ -5,6 +5,10 @@ const productList = document.getElementById('product-list');
 const productsStatus = document.getElementById('products-status');
 const wishlistList = document.getElementById('wishlist-list');
 const wishlistStatus = document.getElementById('wishlist-status');
+const actionStatus = document.getElementById('action-status');
+
+let products = [];
+let wishlistIds = new Set();
 
 export function formatPrice(cents) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
@@ -23,15 +27,41 @@ function el(tag, className, text) {
   return node;
 }
 
-function renderProducts(products) {
+async function addToWishlist(productId) {
+  actionStatus.textContent = '';
+  try {
+    const res = await fetch('/api/wishlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId }),
+    });
+    if (!res.ok && res.status !== 409) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed (${res.status})`);
+    }
+    const { items } = await getJson('/api/wishlist');
+    renderWishlist(items);
+  } catch (err) {
+    console.error(err);
+    actionStatus.textContent = `Could not add to wishlist: ${err.message}`;
+  }
+}
+
+function renderProducts() {
   productList.replaceChildren(
     ...products.map((product) => {
       const card = el('li', 'product-card');
       card.dataset.productId = product.id;
+      const saved = wishlistIds.has(product.id);
+      const button = el('button', '', saved ? 'In wishlist' : 'Add to wishlist');
+      button.type = 'button';
+      button.disabled = saved;
+      button.addEventListener('click', () => addToWishlist(product.id));
       card.append(
         el('h3', 'product-name', product.name),
         el('p', 'product-description', product.description),
         el('p', 'product-price', formatPrice(product.price)),
+        button,
       );
       return card;
     }),
@@ -41,6 +71,8 @@ function renderProducts(products) {
 }
 
 function renderWishlist(items) {
+  wishlistIds = new Set(items.map((item) => item.productId));
+  renderProducts();
   wishlistList.replaceChildren(
     ...items.map((item) => {
       const row = el('li', 'wishlist-item');
@@ -58,11 +90,11 @@ function renderWishlist(items) {
 
 async function load() {
   try {
-    const [{ products }, { items }] = await Promise.all([
+    const [{ products: loaded }, { items }] = await Promise.all([
       getJson('/api/products'),
       getJson('/api/wishlist'),
     ]);
-    renderProducts(products);
+    products = loaded;
     renderWishlist(items);
   } catch (err) {
     console.error(err);

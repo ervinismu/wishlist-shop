@@ -2,7 +2,10 @@
 // Run with: npm test
 
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { after, before, beforeEach, describe, test } from 'node:test';
 
 import { createApp } from '../src/app.js';
@@ -83,6 +86,58 @@ describe('wishlist', () => {
     store.reset({ wishlist: [{ productId: 'gone', addedAt: '2026-01-01T00:00:00.000Z' }] });
     const { body } = await api('/api/wishlist');
     assert.deepEqual(body.items, []);
+  });
+});
+
+describe('adding to the wishlist', () => {
+  test('POST /api/wishlist adds a product and returns 201', async () => {
+    const { status, body } = await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
+    assert.equal(status, 201);
+    assert.equal(body.item.productId, 'p1');
+    assert.equal(body.item.product.name, 'Ceramic Mug');
+    assert.ok(body.item.addedAt);
+    const list = await api('/api/wishlist');
+    assert.equal(list.body.items.length, 1);
+  });
+
+  test('adding a duplicate returns 409 and does not add it twice', async () => {
+    await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
+    const { status, body } = await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
+    assert.equal(status, 409);
+    assert.ok(body.error);
+    const list = await api('/api/wishlist');
+    assert.equal(list.body.items.length, 1);
+  });
+
+  test('an unknown productId returns 404', async () => {
+    const { status } = await api('/api/wishlist', { method: 'POST', body: { productId: 'nope' } });
+    assert.equal(status, 404);
+  });
+
+  test('a missing or non-string productId returns 400', async () => {
+    for (const body of [{}, { productId: 5 }, { productId: null }, { productId: '' }]) {
+      const res = await api('/api/wishlist', { method: 'POST', body });
+      assert.equal(res.status, 400);
+    }
+  });
+
+  test('an invalid JSON body returns 400', async () => {
+    const res = await fetch(baseUrl + '/api/wishlist', { method: 'POST', body: '{oops' });
+    assert.equal(res.status, 400);
+  });
+});
+
+describe('wishlist persistence', () => {
+  test('the wishlist survives a restart', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wishlist-'));
+    try {
+      const file = join(dir, 'db.json');
+      createStore({ file }).addToWishlist('p3');
+      const reloaded = createStore({ file });
+      assert.deepEqual(reloaded.getWishlist().map((e) => e.productId), ['p3']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
