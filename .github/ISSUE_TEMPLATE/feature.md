@@ -16,4 +16,4 @@ labels: []
 ## Notes
 <!-- Optional: links, screenshots, edge cases, things NOT to change. -->
 
-<!-- Before starting the factory, add ONE label: risk-low, risk-medium or risk-high. -->
+<!-- Optional: add a label risk-low, risk-medium or risk-high to tell the reviewer how careful to be. -->
