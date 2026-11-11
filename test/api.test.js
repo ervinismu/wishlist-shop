@@ -219,3 +219,58 @@ describe('errors and static files', () => {
     assert.equal(res.status, 404);
   });
 });
+
+describe('sharing the wishlist', () => {
+  async function page(path) {
+    const res = await fetch(baseUrl + path);
+    return { status: res.status, type: res.headers.get('content-type'), text: await res.text() };
+  }
+
+  test('POST /api/share creates a long random token and a path', async () => {
+    const { status, body } = await api('/api/share', { method: 'POST' });
+    assert.equal(status, 201);
+    assert.ok(body.token.length >= 16);
+    assert.match(body.token, /^[A-Za-z0-9_-]+$/);
+    assert.equal(body.path, `/shared/${body.token}`);
+    const again = await api('/api/share', { method: 'POST' });
+    assert.equal(again.body.token, body.token);
+  });
+
+  test('the shared API shows the wishlist as it is now', async () => {
+    await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
+    const { body: share } = await api('/api/share', { method: 'POST' });
+    let shared = await api(`/api/shared/${share.token}`);
+    assert.equal(shared.status, 200);
+    assert.deepEqual(shared.body.items.map((i) => i.productId), ['p1']);
+    assert.equal(typeof shared.body.items[0].product.price, 'number');
+
+    await api('/api/wishlist', { method: 'POST', body: { productId: 'p2' } });
+    await api('/api/wishlist/p1', { method: 'DELETE' });
+    shared = await api(`/api/shared/${share.token}`);
+    assert.deepEqual(shared.body.items.map((i) => i.productId), ['p2']);
+  });
+
+  test('the shared page opens for a valid token and has no buttons', async () => {
+    const { body: share } = await api('/api/share', { method: 'POST' });
+    const { status, type, text } = await page(share.path);
+    assert.equal(status, 200);
+    assert.match(type, /text\/html/);
+    assert.doesNotMatch(text, /<button/);
+  });
+
+  test('an unknown token gives 404 (API and page)', async () => {
+    await api('/api/share', { method: 'POST' });
+    const { status, body } = await api('/api/shared/not-a-real-token');
+    assert.equal(status, 404);
+    assert.ok(body.error);
+    const bad = await page('/shared/not-a-real-token');
+    assert.equal(bad.status, 404);
+    assert.match(bad.type, /text\/html/);
+    assert.match(bad.text, /This wishlist link doesn&#39;t work|This wishlist link doesn't work/);
+  });
+
+  test('a token is unknown before any link was created, and bad escapes give 404', async () => {
+    assert.equal((await page('/shared/abc')).status, 404);
+    assert.equal((await page('/shared/%E0%A4%A')).status, 404);
+  });
+});

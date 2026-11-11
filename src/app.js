@@ -96,6 +96,18 @@ const routes = [
     return { status: 201, body: { item: { ...entry, product } } };
   }],
 
+  ['POST', '/api/share', ({ store }) => {
+    const token = store.getOrCreateShareToken();
+    return { status: 201, body: { token, path: `/shared/${token}` } };
+  }],
+
+  ['GET', '/api/shared/:token', ({ params, store }) => {
+    if (!store.isValidShareToken(params.token)) {
+      throw new HttpError(404, "This wishlist link doesn't work");
+    }
+    return { items: wishlistView(store) };
+  }],
+
   ['DELETE', '/api/wishlist/:productId', ({ params, store }) => {
     if (!store.removeFromWishlist(params.productId)) {
       throw new HttpError(404, 'Product is not in your wishlist');
@@ -146,6 +158,37 @@ async function serveStatic(pathname, res) {
   res.end(body);
 }
 
+// ---------------------------------------------------------------- shared page
+
+const BAD_LINK_PAGE = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wishlist link doesn't work</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="layout">
+    <section>
+      <h1>This wishlist link doesn't work</h1>
+      <p>The link may be wrong or out of date. Ask the person who sent it for a new one.</p>
+      <p><a href="/">Go to the shop</a></p>
+    </section>
+  </main>
+</body>
+</html>
+`;
+
+async function serveSharedPage(token, store, res) {
+  if (!store.isValidShareToken(token)) {
+    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(BAD_LINK_PAGE);
+    return;
+  }
+  await serveStatic('/shared.html', res);
+}
+
 // ---------------------------------------------------------------- app
 
 export function createApp({ store }) {
@@ -167,6 +210,17 @@ export function createApp({ store }) {
         return;
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+      const shared = pathname.match(/^\/shared\/([^/]*)$/);
+      if (shared) {
+        let token = '';
+        try {
+          token = decodeURIComponent(shared[1]);
+        } catch {
+          // malformed escape: treated as an unknown token
+        }
+        await serveSharedPage(token, store, res);
+        return;
+      }
       await serveStatic(pathname, res);
     } catch (err) {
       const status = err instanceof HttpError ? err.status : 500;
