@@ -158,6 +158,29 @@ describe('wishlist limit', () => {
   });
 });
 
+describe('removing from the wishlist', () => {
+  test('removes an item and returns 200', async () => {
+    await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
+    const { status } = await api('/api/wishlist/p1', { method: 'DELETE' });
+    assert.equal(status, 200);
+    const { body } = await api('/api/wishlist');
+    assert.deepEqual(body.items, []);
+  });
+
+  test('a removed product can be added again', async () => {
+    await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
+    await api('/api/wishlist/p1', { method: 'DELETE' });
+    const { status } = await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
+    assert.equal(status, 201);
+  });
+
+  test('removing an item that is not in the wishlist returns 404', async () => {
+    const { status, body } = await api('/api/wishlist/p1', { method: 'DELETE' });
+    assert.equal(status, 404);
+    assert.ok(body.error);
+  });
+});
+
 describe('wishlist persistence', () => {
   test('the wishlist survives a restart', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'wishlist-'));

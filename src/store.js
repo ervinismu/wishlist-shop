@@ -47,6 +47,15 @@ export function createStore({ file } = {}) {
       return { ...entry };
     },
 
+    // Removes a product from the wishlist. Returns true if it was there, false if not.
+    removeFromWishlist(productId) {
+      const index = data.wishlist.findIndex((entry) => entry.productId === productId);
+      if (index === -1) return false;
+      data.wishlist.splice(index, 1);
+      save();
+      return true;
+    },
+
     // Replace all data. Used by tests to set up a known state.
     reset(newData = EMPTY()) {
       data = { ...EMPTY(), ...structuredClone(newData) };

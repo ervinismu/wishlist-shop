@@ -95,6 +95,13 @@ const routes = [
     if (!entry) throw new HttpError(409, 'Product is already in your wishlist');
     return { status: 201, body: { item: { ...entry, product } } };
   }],
+
+  ['DELETE', '/api/wishlist/:productId', ({ params, store }) => {
+    if (!store.removeFromWishlist(params.productId)) {
+      throw new HttpError(404, 'Product is not in your wishlist');
+    }
+    return { removed: params.productId };
+  }],
 ];
 
 function matchRoute(method, pathname) {

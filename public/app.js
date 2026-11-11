@@ -50,6 +50,23 @@ async function addToWishlist(productId) {
   }
 }
 
+async function removeFromWishlist(productId) {
+  actionStatus.textContent = '';
+  try {
+    const res = await fetch(`/api/wishlist/${encodeURIComponent(productId)}`, { method: 'DELETE' });
+    // 404 means it is already gone; just refresh the list below.
+    if (!res.ok && res.status !== 404) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed (${res.status})`);
+    }
+    const { items } = await getJson('/api/wishlist');
+    renderWishlist(items);
+  } catch (err) {
+    console.error(err);
+    actionStatus.textContent = `Could not remove from wishlist: ${err.message}`;
+  }
+}
+
 function renderProducts() {
   productList.replaceChildren(
     ...products.map((product) => {
@@ -80,9 +97,14 @@ function renderWishlist(items) {
     ...items.map((item) => {
       const row = el('li', 'wishlist-item');
       row.dataset.productId = item.productId;
+      const remove = el('button', '', 'Remove');
+      remove.type = 'button';
+      remove.setAttribute('aria-label', `Remove ${item.product.name} from wishlist`);
+      remove.addEventListener('click', () => removeFromWishlist(item.productId));
       row.append(
         el('span', 'wishlist-name', item.product.name),
         el('span', 'wishlist-price', formatPrice(item.product.price)),
+        remove,
       );
       return row;
     }),
