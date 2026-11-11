@@ -113,6 +113,38 @@ function renderWishlist(items) {
   wishlistStatus.textContent = 'Your wishlist is empty.';
 }
 
+const shareButton = document.getElementById('share-button');
+const shareResult = document.getElementById('share-result');
+const shareLink = document.getElementById('share-link');
+const copyButton = document.getElementById('copy-button');
+const shareStatus = document.getElementById('share-status');
+
+shareButton.addEventListener('click', async () => {
+  shareStatus.textContent = '';
+  try {
+    const res = await fetch('/api/share', { method: 'POST' });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    const { path } = await res.json();
+    shareLink.value = new URL(path, window.location.origin).href;
+    shareResult.hidden = false;
+  } catch (err) {
+    console.error(err);
+    shareStatus.textContent = `Could not create a share link: ${err.message}`;
+  }
+});
+
+copyButton.addEventListener('click', async () => {
+  shareStatus.textContent = '';
+  try {
+    await navigator.clipboard.writeText(shareLink.value);
+    shareStatus.textContent = 'Link copied.';
+  } catch (err) {
+    console.error(err);
+    shareLink.select();
+    shareStatus.textContent = 'Could not copy automatically. The link is selected: copy it by hand.';
+  }
+});
+
 async function load() {
   try {
     const [{ products: loaded }, { items }] = await Promise.all([

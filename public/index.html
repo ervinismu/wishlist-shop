@@ -24,6 +24,13 @@
       <h2 id="wishlist-title">Your wishlist</h2>
       <p class="status" id="wishlist-status">Loading…</p>
       <ul class="wishlist-items" id="wishlist-list" data-testid="wishlist-list"></ul>
+      <button type="button" id="share-button">Share</button>
+      <div id="share-result" hidden>
+        <label for="share-link">Share link</label>
+        <input type="text" id="share-link" readonly>
+        <button type="button" id="copy-button">Copy link</button>
+      </div>
+      <p class="status" id="share-status" role="alert"></p>
     </aside>
   </main>
 

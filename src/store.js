@@ -4,15 +4,17 @@
 // after every change. Tests use the in-memory store (no file).
 //
 // Shape of the stored data:
-//   { wishlist: [ { productId: "p1", addedAt: "2026-01-01T00:00:00.000Z" } ] }
+//   { wishlist: [ { productId: "p1", addedAt: "2026-01-01T00:00:00.000Z" } ],
+//     shareToken: null or a random string used in the share link }
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { dirname } from 'node:path';
 
 // Maximum number of items on the wishlist.
 export const MAX_WISHLIST_ITEMS = 100;
 
-const EMPTY = () => ({ wishlist: [] });
+const EMPTY = () => ({ wishlist: [], shareToken: null });
 
 export function createStore({ file } = {}) {
   let data = EMPTY();
@@ -54,6 +56,20 @@ export function createStore({ file } = {}) {
       data.wishlist.splice(index, 1);
       save();
       return true;
+    },
+
+    // Returns the wishlist share token, creating a random one the first time.
+    getOrCreateShareToken() {
+      if (!data.shareToken) {
+        data.shareToken = randomBytes(24).toString('base64url'); // 32 characters
+        save();
+      }
+      return data.shareToken;
+    },
+
+    // True if the token matches the current share token.
+    isValidShareToken(token) {
+      return typeof token === 'string' && data.shareToken !== null && token === data.shareToken;
     },
 
     // Replace all data. Used by tests to set up a known state.
