@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { after, before, beforeEach, describe, test } from 'node:test';
 
 import { createApp } from '../src/app.js';
-import { createStore } from '../src/store.js';
+import { MAX_WISHLIST_ITEMS, createStore } from '../src/store.js';
 
 let server;
 let baseUrl;
@@ -124,6 +124,37 @@ describe('adding to the wishlist', () => {
   test('an invalid JSON body returns 400', async () => {
     const res = await fetch(baseUrl + '/api/wishlist', { method: 'POST', body: '{oops' });
     assert.equal(res.status, 400);
+  });
+});
+
+describe('wishlist limit', () => {
+  const fill = (n) => ({
+    wishlist: Array.from({ length: n }, (_, i) => ({ productId: `x${i}`, addedAt: '2026-01-01T00:00:00.000Z' })),
+  });
+
+  test('the limit is 100', () => {
+    assert.equal(MAX_WISHLIST_ITEMS, 100);
+  });
+
+  test('adding when the wishlist is full returns 409', async () => {
+    store.reset(fill(MAX_WISHLIST_ITEMS));
+    const { status, body } = await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
+    assert.equal(status, 409);
+    assert.equal(body.error, 'Your wishlist is full (100 items)');
+    assert.equal(store.countWishlist(), MAX_WISHLIST_ITEMS);
+  });
+
+  test('the last allowed item can still be added', async () => {
+    store.reset(fill(MAX_WISHLIST_ITEMS - 1));
+    const { status } = await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
+    assert.equal(status, 201);
+  });
+
+  test('a wishlist with exactly 100 items loads', async () => {
+    store.reset(fill(MAX_WISHLIST_ITEMS));
+    const { status, body } = await api('/api/wishlist');
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body.items));
   });
 });
 

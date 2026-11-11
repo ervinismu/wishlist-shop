@@ -9,6 +9,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+// Maximum number of items on the wishlist.
+export const MAX_WISHLIST_ITEMS = 100;
+
 const EMPTY = () => ({ wishlist: [] });
 
 export function createStore({ file } = {}) {
@@ -28,6 +31,11 @@ export function createStore({ file } = {}) {
     // Returns the wishlist entries, oldest first.
     getWishlist() {
       return data.wishlist.map((entry) => ({ ...entry }));
+    },
+
+    // Number of entries on the wishlist.
+    countWishlist() {
+      return data.wishlist.length;
     },
 
     // Adds a product to the wishlist. Returns the new entry, or null if it is already there.
