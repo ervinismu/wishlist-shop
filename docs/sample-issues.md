@@ -1,7 +1,7 @@
 # Sample issues for testing the factory
 
-Create the labels first: `risk-low`, `risk-medium`, `risk-high`.
-Then open these issues in order. Copy each title and body as written.
+Risk labels (`risk-low`, `risk-medium`, `risk-high`) are optional. They only
+tell the reviewer how careful to be. Open these issues in order. Copy each title and body as written.
 
 | # | Title | Label | What it tests |
 |---|---|---|---|
@@ -97,8 +97,8 @@ The wishlist could be better.
 ## 6. Add a dark mode
 **Label:** none (leave it unlabelled)
 
-This issue has no risk label and no Acceptance criteria section, so the
-factory's ready check should **stop it** and comment with what's missing.
+This issue has no Acceptance criteria section, so the factory's ready check
+should **stop it** and comment with what's missing.
 
 ```markdown
 It would be nice to have a dark mode for the shop.

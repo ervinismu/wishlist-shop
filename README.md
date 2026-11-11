@@ -27,6 +27,11 @@ npm run lint     # check syntax
 ## Working with the factory
 1. Open an issue with the **Feature** template. Fill in the
    **Acceptance criteria** section.
-2. Add one label: `risk-low`, `risk-medium` or `risk-high`.
+2. Optional: add a label `risk-low`, `risk-medium` or `risk-high`. It is shown
+   to the reviewer; it doesn't change any rules.
 3. In Slack: `@factory start <issue number>`.
 4. Review the pull request. CI runs the tests on every PR.
+
+**Every pull request needs a human approval.** The factory never merges. It
+opens PRs from its own GitHub account, so a person can review and approve them
+(GitHub doesn't let anyone approve their own PR).
