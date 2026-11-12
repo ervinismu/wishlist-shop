@@ -258,17 +258,48 @@ const shareLink = document.getElementById('share-link');
 const copyButton = document.getElementById('copy-button');
 const shareStatus = document.getElementById('share-status');
 
+function showShareLink(path) {
+  shareLink.value = new URL(path, window.location.origin).href;
+  shareResult.hidden = false;
+}
+
+// On load, show the link and "Stop sharing" if sharing is already on.
+(async () => {
+  try {
+    const res = await fetch('/api/share');
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    const info = await res.json();
+    if (info.shared) showShareLink(info.path);
+  } catch (err) {
+    console.error(err);
+    shareStatus.textContent = `Could not check the share link: ${err.message}`;
+  }
+})();
+
 shareButton.addEventListener('click', async () => {
   shareStatus.textContent = '';
   try {
     const res = await fetch('/api/share', { method: 'POST' });
     if (!res.ok) throw new Error(`Request failed (${res.status})`);
     const { path } = await res.json();
-    shareLink.value = new URL(path, window.location.origin).href;
-    shareResult.hidden = false;
+    showShareLink(path);
   } catch (err) {
     console.error(err);
     shareStatus.textContent = `Could not create a share link: ${err.message}`;
+  }
+});
+
+document.getElementById('unshare-button').addEventListener('click', async () => {
+  shareStatus.textContent = '';
+  try {
+    const res = await fetch('/api/share', { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    shareResult.hidden = true;
+    shareLink.value = '';
+    shareStatus.textContent = 'Sharing is off. The old link no longer works.';
+  } catch (err) {
+    console.error(err);
+    shareStatus.textContent = `Could not stop sharing: ${err.message}`;
   }
 });
 

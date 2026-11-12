@@ -192,9 +192,21 @@ const routes = [
     return { status: 201, body: { item: { ...entry, product } } };
   }],
 
+  // Is sharing on? Does not create a token.
+  ['GET', '/api/share', ({ store }) => {
+    const token = store.getShareToken();
+    return token ? { shared: true, token, path: `/shared/${token}` } : { shared: false };
+  }],
+
   ['POST', '/api/share', ({ store }) => {
     const token = store.getOrCreateShareToken();
     return { status: 201, body: { token, path: `/shared/${token}` } };
+  }],
+
+  // Stops sharing. Fine to call when nothing is shared.
+  ['DELETE', '/api/share', ({ store }) => {
+    store.clearShareToken();
+    return { shared: false };
   }],
 
   ['GET', '/api/shared/:token', ({ params, store }) => {

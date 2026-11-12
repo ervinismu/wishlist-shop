@@ -87,6 +87,18 @@ export function createStore({ file } = {}) {
       return data.shareToken;
     },
 
+    // The current share token, or null. Never creates one.
+    getShareToken() {
+      return data.shareToken;
+    },
+
+    // Turns sharing off: the old token stops working. Sharing again makes a new token.
+    clearShareToken() {
+      if (data.shareToken === null) return;
+      data.shareToken = null;
+      save();
+    },
+
     // True if the token matches the current share token.
     isValidShareToken(token) {
       return typeof token === 'string' && data.shareToken !== null && token === data.shareToken;
