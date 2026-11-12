@@ -70,6 +70,24 @@ function totalCents(items) {
   return items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 }
 
+// Makes one CSV field safe: text a spreadsheet could run as a formula gets a leading
+// apostrophe, and fields with commas, quotes or line breaks are quoted.
+function csvField(value) {
+  let text = String(value ?? '');
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+const dollars = (cents) => (cents / 100).toFixed(2);
+
+function wishlistCsv(items) {
+  const rows = [['Name', 'Quantity', 'Unit price', 'Line total', 'Note']];
+  for (const { product, quantity, note } of items) {
+    rows.push([product.name, quantity, dollars(product.price), dollars(product.price * quantity), note]);
+  }
+  return rows.map((row) => row.map(csvField).join(',')).join('\r\n') + '\r\n';
+}
+
 const SORTS = {
   added: (a, b) => (a.addedAt < b.addedAt ? -1 : a.addedAt > b.addedAt ? 1 : 0),
   name: (a, b) => a.product.name.localeCompare(b.product.name),
@@ -135,6 +153,15 @@ const routes = [
       .sort(SORTS[sort]);
     return { items };
   }],
+
+  // The owner's wishlist as a CSV download, oldest first. There is no CSV for shared links.
+  ['GET', '/api/wishlist.csv', ({ store }) => ({
+    raw: {
+      type: 'text/csv; charset=utf-8',
+      headers: { 'Content-Disposition': 'attachment; filename="wishlist.csv"' },
+      text: wishlistCsv(wishlistView(store).sort(SORTS.added)),
+    },
+  })],
 
   // Total of everything on the wishlist in cents (price x quantity), whatever a filter shows.
   ['GET', '/api/wishlist/total', ({ store }) => ({ total: totalCents(wishlistView(store)) })],
@@ -275,6 +302,12 @@ export function createApp({ store }) {
             : new HttpError(404, 'Not found');
         }
         const result = await match.handler({ req, url, params: match.params, store });
+        if (result?.raw) {
+          const { type, headers, text } = result.raw;
+          res.writeHead(200, { 'Content-Type': type, 'Content-Length': Buffer.byteLength(text), ...headers });
+          res.end(text);
+          return;
+        }
         const status = result?.status ?? 200;
         const body = result?.body ?? result;
         sendJson(res, status, body);

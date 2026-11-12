@@ -284,6 +284,26 @@ copyButton.addEventListener('click', async () => {
   }
 });
 
+document.getElementById('csv-button').addEventListener('click', async () => {
+  const csvStatus = document.getElementById('csv-status');
+  csvStatus.textContent = '';
+  try {
+    const res = await fetch('/api/wishlist.csv');
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    const url = URL.createObjectURL(await res.blob());
+    const link = el('a');
+    link.href = url;
+    link.download = 'wishlist.csv';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    csvStatus.textContent = `Could not download the CSV: ${err.message}`;
+  }
+});
+
 async function load() {
   try {
     const { products: loaded } = await getJson('/api/products');
