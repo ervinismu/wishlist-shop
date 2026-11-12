@@ -11,6 +11,7 @@ const actionStatus = document.getElementById('action-status');
 
 const wishlistTotal = document.getElementById('wishlist-total');
 const searchInput = document.getElementById('wishlist-search');
+const productSearch = document.getElementById('product-search');
 const sortSelect = document.getElementById('wishlist-sort');
 const MAX_QUANTITY = 10;
 
@@ -166,7 +167,9 @@ function renderProducts() {
     }),
   );
   productsStatus.hidden = products.length > 0;
-  productsStatus.textContent = 'No products yet.';
+  productsStatus.textContent = productSearch.value.trim() !== ''
+    ? 'No products match your search.'
+    : 'No products yet.';
 }
 
 function renderWishlist(items, total) {
@@ -215,6 +218,21 @@ searchInput.addEventListener('input', () => refreshWishlist().catch((err) => {
   actionStatus.textContent = `Could not update the wishlist: ${err.message}`;
 }));
 sortSelect.addEventListener('change', () => searchInput.dispatchEvent(new Event('input')));
+
+let productSearchId = 0;
+productSearch.addEventListener('input', async () => {
+  const id = ++productSearchId;
+  try {
+    const params = new URLSearchParams({ q: productSearch.value });
+    const { products: found } = await getJson(`/api/products?${params}`);
+    if (id !== productSearchId) return; // a newer search is in flight
+    products = found;
+    renderProducts();
+  } catch (err) {
+    console.error(err);
+    actionStatus.textContent = `Could not search products: ${err.message}`;
+  }
+});
 
 const shareButton = document.getElementById('share-button');
 const shareResult = document.getElementById('share-result');

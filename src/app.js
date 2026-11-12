@@ -100,7 +100,11 @@ function parseNote(value) {
 const routes = [
   ['GET', '/api/health', () => ({ ok: true })],
 
-  ['GET', '/api/products', () => ({ products })],
+  // Optional query: q=text to match in the name (ignores case and surrounding spaces).
+  ['GET', '/api/products', ({ url }) => {
+    const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+    return { products: products.filter((product) => product.name.toLowerCase().includes(q)) };
+  }],
 
   ['GET', '/api/products/:id', ({ params }) => {
     const product = findProduct(params.id);
