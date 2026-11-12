@@ -513,3 +513,54 @@ describe('wishlist quantity, total, sorting and filtering', () => {
     assert.equal(body.total, 3600);
   });
 });
+
+describe('wishlist CSV', () => {
+  async function csv() {
+    const res = await fetch(`${baseUrl}/api/wishlist.csv`);
+    return { res, text: await res.text() };
+  }
+
+  test('empty wishlist returns only the header row', async () => {
+    const { res, text } = await csv();
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'text/csv; charset=utf-8');
+    assert.match(res.headers.get('content-disposition'), /filename="wishlist\.csv"/);
+    assert.equal(text, 'Name,Quantity,Unit price,Line total,Note\r\n');
+  });
+
+  test('lists items with dollar prices and a note', async () => {
+    const { products } = (await api('/api/products')).body;
+    const [p] = products;
+    await api('/api/wishlist', { method: 'POST', body: { productId: p.id, quantity: 2 } });
+    await api(`/api/wishlist/${p.id}`, { method: 'PATCH', body: { note: 'say "hi", ok' } });
+    const { text } = await csv();
+    const [, row] = text.split('\r\n');
+    const unit = (p.price / 100).toFixed(2);
+    const line = ((p.price * 2) / 100).toFixed(2);
+    const name = /[",\n]/.test(p.name) ? `"${p.name.replaceAll('"', '""')}"` : p.name;
+    assert.equal(row, `${name},2,${unit},${line},"say ""hi"", ok"`);
+  });
+
+  test('formula-like notes are made safe and line breaks are quoted', async () => {
+    const { products } = (await api('/api/products')).body;
+    const [a, b] = products;
+    await api('/api/wishlist', { method: 'POST', body: { productId: a.id } });
+    await api('/api/wishlist', { method: 'POST', body: { productId: b.id } });
+    await api(`/api/wishlist/${a.id}`, { method: 'PATCH', body: { note: '=1+1' } });
+    await api(`/api/wishlist/${b.id}`, { method: 'PATCH', body: { note: 'line1\nline2' } });
+    const { text } = await csv();
+    assert.ok(text.includes(",'=1+1\r\n"));
+    assert.ok(text.includes('"line1\nline2"'));
+  });
+
+  test('there is no CSV for shared links', async () => {
+    const { body } = await api('/api/share', { method: 'POST' });
+    const res = await fetch(`${baseUrl}/api/shared/${body.path.split('/').pop()}.csv`);
+    assert.equal(res.status, 404);
+  });
+
+  test('POST is not allowed', async () => {
+    const { status } = await api('/api/wishlist.csv', { method: 'POST' });
+    assert.equal(status, 405);
+  });
+});
