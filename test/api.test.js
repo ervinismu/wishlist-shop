@@ -55,6 +55,30 @@ describe('products', () => {
     }
   });
 
+  test('GET /api/products?q= matches names ignoring case and surrounding spaces', async () => {
+    const { status, body } = await api('/api/products?q=%20%20MUG%20');
+    assert.equal(status, 200);
+    assert.deepEqual(body.products.map((p) => p.name), ['Ceramic Mug']);
+  });
+
+  test('GET /api/products with empty or missing q returns all products', async () => {
+    const all = (await api('/api/products')).body.products;
+    assert.equal((await api('/api/products?q=')).body.products.length, all.length);
+    assert.equal((await api('/api/products?q=%20%20')).body.products.length, all.length);
+  });
+
+  test('GET /api/products?q= returns an empty list when nothing matches', async () => {
+    const { status, body } = await api('/api/products?q=zzz-no-such-thing');
+    assert.equal(status, 200);
+    assert.deepEqual(body.products, []);
+  });
+
+  test('a product found by search can be added to the wishlist', async () => {
+    const [found] = (await api('/api/products?q=mug')).body.products;
+    const added = await api('/api/wishlist', { method: 'POST', body: { productId: found.id } });
+    assert.equal(added.status, 201);
+  });
+
   test('GET /api/products/:id returns one product', async () => {
     const { status, body } = await api('/api/products/p1');
     assert.equal(status, 200);
