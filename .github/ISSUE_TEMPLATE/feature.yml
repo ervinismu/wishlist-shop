@@ -1,0 +1,38 @@
+name: Feature
+description: Something the factory should build
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What and why
+      description: What should change, and who it helps. One or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How we'll know it's done. One checkable statement per line.
+      placeholder: |
+        - [ ] A visitor can …
+        - [ ] When … fails, the page shows …
+    validations:
+      required: true
+  - type: textarea
+    id: business-rules
+    attributes:
+      label: Business rules
+      description: >-
+        Limits, numbers, schedules, wording, who can see what, and who decides.
+        Write "None" if there are none. The factory asks instead of guessing,
+        so anything left out here becomes a question.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: "Optional: links, screenshots, edge cases, things NOT to change."
+  - type: markdown
+    attributes:
+      value: "Optional: after creating the issue, add a label `risk-low`, `risk-medium` or `risk-high` to tell the reviewer how careful to be."
