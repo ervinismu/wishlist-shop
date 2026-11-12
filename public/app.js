@@ -1,6 +1,8 @@
 // Web page logic. Loads products and the wishlist from the API and shows them.
 // Always set text with textContent (never innerHTML) so data can't inject HTML.
 
+import { openNoteEditor } from './note-editor.js';
+
 const productList = document.getElementById('product-list');
 const productsStatus = document.getElementById('products-status');
 const wishlistList = document.getElementById('wishlist-list');
@@ -64,44 +66,46 @@ async function changeQuantity(productId, quantity) {
   }
 }
 
-async function saveNote(productId, note) {
+async function patchNote(productId, note) {
   actionStatus.textContent = '';
-  try {
-    const res = await fetch(`/api/wishlist/${encodeURIComponent(productId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `Request failed (${res.status})`);
-    }
-  } catch (err) {
-    console.error(err);
-    actionStatus.textContent = `Could not save the note: ${err.message}`;
-    return;
+  const res = await fetch(`/api/wishlist/${encodeURIComponent(productId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
   }
-  try {
-    await refreshWishlist();
-  } catch (err) {
-    console.error(err);
+}
+
+function focusEditNote(productId) {
+  for (const row of wishlistList.children) {
+    if (row.dataset.productId === productId) row.querySelector('.edit-note')?.focus();
   }
 }
 
 function editNote(item, noteText, editButton) {
-  const input = el('input', 'wishlist-note-input');
-  input.type = 'text';
-  input.value = item.note ?? '';
-  input.setAttribute('aria-label', `Note for ${item.product.name}`);
-  const save = el('button', '', 'Save note');
-  save.type = 'button';
-  save.addEventListener('click', () => saveNote(item.productId, input.value));
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') save.click();
+  openNoteEditor({
+    name: item.product.name,
+    note: item.note,
+    noteText,
+    editButton,
+    create: (tag) => document.createElement(tag),
+    save: (note) => patchNote(item.productId, note),
+    onError: (err) => {
+      console.error(err);
+      actionStatus.textContent = `Could not save the note: ${err.message}`;
+    },
+    onSaved: async () => {
+      try {
+        await refreshWishlist();
+      } catch (err) {
+        console.error(err);
+      }
+      focusEditNote(item.productId);
+    },
   });
-  noteText.replaceWith(input);
-  editButton.replaceWith(save);
-  input.focus();
 }
 
 async function addToWishlist(productId) {
@@ -185,7 +189,7 @@ function renderWishlist(items, total) {
       qty.setAttribute('aria-label', `Quantity of ${item.product.name}`);
       qty.addEventListener('change', () => changeQuantity(item.productId, Number(qty.value)));
       const noteText = el('span', 'wishlist-note', item.note ?? '');
-      const editNoteButton = el('button', '', 'Edit note');
+      const editNoteButton = el('button', 'edit-note', 'Edit note');
       editNoteButton.type = 'button';
       editNoteButton.setAttribute('aria-label', `Edit note for ${item.product.name}`);
       editNoteButton.addEventListener('click', () => editNote(item, noteText, editNoteButton));
@@ -193,9 +197,9 @@ function renderWishlist(items, total) {
         el('span', 'wishlist-name', item.product.name),
         qty,
         el('span', 'wishlist-price', formatPrice(item.product.price * item.quantity)),
-        noteText,
         editNoteButton,
         remove,
+        noteText,
       );
       return row;
     }),
