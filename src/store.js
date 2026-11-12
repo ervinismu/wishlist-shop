@@ -52,16 +52,7 @@ export function createStore({ file } = {}) {
       const entry = { productId, addedAt: new Date().toISOString(), quantity };
       data.wishlist.push(entry);
       save();
-      return { ...entry };
-    },
-
-    // Sets the quantity of an item. Returns the updated entry, or null if it is not on the list.
-    setWishlistQuantity(productId, quantity) {
-      const entry = data.wishlist.find((e) => e.productId === productId);
-      if (!entry) return null;
-      entry.quantity = quantity;
-      save();
-      return { ...entry };
+      return { ...entry, note: null };
     },
 
     // Updates quantity and/or note of an item (pass undefined to leave a field alone;

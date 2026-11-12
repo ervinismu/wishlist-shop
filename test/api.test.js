@@ -185,6 +185,16 @@ describe('wishlist notes', () => {
   const add = (productId) => api('/api/wishlist', { method: 'POST', body: { productId } });
   const patch = (body, id = 'p1') => api(`/api/wishlist/${id}`, { method: 'PATCH', body });
 
+  test('POST, GET and PATCH return items with the same fields', async () => {
+    const created = (await add('p1')).body.item;
+    const listed = (await api('/api/wishlist')).body.items[0];
+    const patched = (await patch({ quantity: 2 })).body.item;
+    const keys = (item) => Object.keys(item).sort();
+    assert.equal(created.note, null);
+    assert.deepEqual(keys(created), keys(listed));
+    assert.deepEqual(keys(patched), keys(listed));
+  });
+
   test('saves a trimmed note, alone or with quantity, and lists it', async () => {
     await add('p1');
     const { status, body } = await patch({ note: '  for <Mum> & co  ' });
