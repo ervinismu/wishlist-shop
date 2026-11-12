@@ -1,6 +1,8 @@
 // Web page logic. Loads products and the wishlist from the API and shows them.
 // Always set text with textContent (never innerHTML) so data can't inject HTML.
 
+import { openNoteEditor } from './note-editor.js';
+
 const productList = document.getElementById('product-list');
 const productsStatus = document.getElementById('products-status');
 const wishlistList = document.getElementById('wishlist-list');
@@ -64,29 +66,17 @@ async function changeQuantity(productId, quantity) {
   }
 }
 
-async function saveNote(productId, note) {
+async function patchNote(productId, note) {
   actionStatus.textContent = '';
-  try {
-    const res = await fetch(`/api/wishlist/${encodeURIComponent(productId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `Request failed (${res.status})`);
-    }
-  } catch (err) {
-    console.error(err);
-    actionStatus.textContent = `Could not save the note: ${err.message}`;
-    return;
+  const res = await fetch(`/api/wishlist/${encodeURIComponent(productId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
   }
-  try {
-    await refreshWishlist();
-  } catch (err) {
-    console.error(err);
-  }
-  focusEditNote(productId);
 }
 
 function focusEditNote(productId) {
@@ -96,31 +86,26 @@ function focusEditNote(productId) {
 }
 
 function editNote(item, noteText, editButton) {
-  const input = el('input', 'wishlist-note-input');
-  input.type = 'text';
-  input.value = item.note ?? '';
-  input.setAttribute('aria-label', `Note for ${item.product.name}`);
-  const save = el('button', '', 'Save note');
-  save.type = 'button';
-  const cancel = el('button', '', 'Cancel');
-  cancel.type = 'button';
-  cancel.setAttribute('aria-label', `Cancel editing note for ${item.product.name}`);
-  const close = () => {
-    input.replaceWith(noteText);
-    cancel.remove();
-    save.replaceWith(editButton);
-    editButton.focus();
-  };
-  save.addEventListener('click', () => saveNote(item.productId, input.value));
-  cancel.addEventListener('click', close);
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') save.click();
-    if (event.key === 'Escape') close();
+  openNoteEditor({
+    name: item.product.name,
+    note: item.note,
+    noteText,
+    editButton,
+    create: (tag) => document.createElement(tag),
+    save: (note) => patchNote(item.productId, note),
+    onError: (err) => {
+      console.error(err);
+      actionStatus.textContent = `Could not save the note: ${err.message}`;
+    },
+    onSaved: async () => {
+      try {
+        await refreshWishlist();
+      } catch (err) {
+        console.error(err);
+      }
+      focusEditNote(item.productId);
+    },
   });
-  noteText.replaceWith(input);
-  editButton.replaceWith(save);
-  save.after(cancel);
-  input.focus();
 }
 
 async function addToWishlist(productId) {

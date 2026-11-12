@@ -45,7 +45,7 @@ body { margin: 0; }
   margin: 0 auto;
   padding: 8px 24px 48px;
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr 360px;
   gap: 32px;
   align-items: start;
 }
@@ -101,19 +101,21 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .wishlist-controls { display: grid; gap: 4px; margin-bottom: 12px; }
 .wishlist-total { font-weight: 600; }
-.wishlist-qty { width: 4em; }
+.wishlist-qty { width: 3.5em; padding: 4px; }
 .wishlist-items { list-style: none; padding: 0; margin: 0; }
 .wishlist-item {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
   align-items: center;
 }
 .wishlist-item:last-child { border-bottom: 0; }
-.wishlist-name { flex: 1; min-width: 0; }
+.wishlist-item button { padding: 4px 8px; }
+.wishlist-price { white-space: nowrap; }
+.wishlist-name { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
 .wishlist-note { flex-basis: 100%; font-style: italic; overflow-wrap: anywhere; }
 .wishlist-note:empty { display: none; }
 .wishlist-note-input { flex-basis: 100%; }
