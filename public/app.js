@@ -12,6 +12,7 @@ const actionStatus = document.getElementById('action-status');
 const wishlistTotal = document.getElementById('wishlist-total');
 const searchInput = document.getElementById('wishlist-search');
 const productSearch = document.getElementById('product-search');
+const categoryFilter = document.getElementById('category-filter');
 const sortSelect = document.getElementById('wishlist-sort');
 const MAX_QUANTITY = 10;
 
@@ -159,6 +160,7 @@ function renderProducts() {
       button.addEventListener('click', () => addToWishlist(product.id));
       card.append(
         el('h3', 'product-name', product.name),
+        el('p', 'product-category', product.category),
         el('p', 'product-description', product.description),
         el('p', 'product-price', formatPrice(product.price)),
         button,
@@ -167,7 +169,7 @@ function renderProducts() {
     }),
   );
   productsStatus.hidden = products.length > 0;
-  productsStatus.textContent = productSearch.value.trim() !== ''
+  productsStatus.textContent = productSearch.value.trim() !== '' || categoryFilter.value !== ''
     ? 'No products match your search.'
     : 'No products yet.';
 }
@@ -220,10 +222,10 @@ searchInput.addEventListener('input', () => refreshWishlist().catch((err) => {
 sortSelect.addEventListener('change', () => searchInput.dispatchEvent(new Event('input')));
 
 let productSearchId = 0;
-productSearch.addEventListener('input', async () => {
+async function searchProducts() {
   const id = ++productSearchId;
   try {
-    const params = new URLSearchParams({ q: productSearch.value });
+    const params = new URLSearchParams({ q: productSearch.value, category: categoryFilter.value });
     const { products: found } = await getJson(`/api/products?${params}`);
     if (id !== productSearchId) return; // a newer search is in flight
     products = found;
@@ -232,7 +234,23 @@ productSearch.addEventListener('input', async () => {
     console.error(err);
     actionStatus.textContent = `Could not search products: ${err.message}`;
   }
-});
+}
+productSearch.addEventListener('input', searchProducts);
+categoryFilter.addEventListener('change', searchProducts);
+
+async function loadCategories() {
+  try {
+    const { categories } = await getJson('/api/categories');
+    for (const name of categories) {
+      const option = el('option', '', name);
+      option.value = name;
+      categoryFilter.append(option);
+    }
+  } catch (err) {
+    console.error(err);
+    actionStatus.textContent = `Could not load categories: ${err.message}`;
+  }
+}
 
 const shareButton = document.getElementById('share-button');
 const shareResult = document.getElementById('share-result');
@@ -278,4 +296,5 @@ async function load() {
   }
 }
 
+loadCategories();
 load();

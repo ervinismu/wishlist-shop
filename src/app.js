@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { findProduct, products } from './products.js';
+import { categories, findProduct, products } from './products.js';
 import { MAX_NOTE_LENGTH, MAX_QUANTITY, MAX_WISHLIST_ITEMS } from './store.js';
 
 const PUBLIC_DIR = resolve(fileURLToPath(new URL('../public', import.meta.url)));
@@ -100,10 +100,20 @@ function parseNote(value) {
 const routes = [
   ['GET', '/api/health', () => ({ ok: true })],
 
-  // Optional query: q=text to match in the name (ignores case and surrounding spaces).
+  ['GET', '/api/categories', () => ({ categories })],
+
+  // Optional query: q=text to match in the name (ignores case and surrounding spaces),
+  // category=name (ignores case). Both must match when used together.
   ['GET', '/api/products', ({ url }) => {
     const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
-    return { products: products.filter((product) => product.name.toLowerCase().includes(q)) };
+    const category = (url.searchParams.get('category') ?? '').trim().toLowerCase();
+    if (category !== '' && !categories.some((c) => c.toLowerCase() === category)) {
+      throw new HttpError(400, 'Unknown category');
+    }
+    return {
+      products: products.filter((product) => product.name.toLowerCase().includes(q)
+        && (category === '' || product.category.toLowerCase() === category)),
+    };
   }],
 
   ['GET', '/api/products/:id', ({ params }) => {
