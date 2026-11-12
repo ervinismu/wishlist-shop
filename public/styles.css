@@ -5,10 +5,26 @@
   --muted: #6f6862;
   --border: #e6e0d9;
   --accent: #b4552d;
+  --on-accent: #ffffff;
   --radius: 12px;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text);
   background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) { color-scheme: dark; }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1a1816;
+  --surface: #26231f;
+  --text: #f1ede8;
+  --muted: #b3aaa1;
+  --border: #433d36;
+  --accent: #e8946a;
+  --on-accent: #1a1816;
 }
 
 * { box-sizing: border-box; }
@@ -64,12 +80,14 @@ button {
   font: inherit;
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
 }
 button.secondary { background: transparent; color: var(--accent); }
+body { background: var(--bg); color: var(--text); }
+input, select { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: inherit; }
 button:disabled { opacity: 0.5; cursor: default; }
 
 .wishlist {
