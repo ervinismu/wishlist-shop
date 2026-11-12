@@ -109,11 +109,14 @@ button:disabled { opacity: 0.5; cursor: default; }
   gap: 8px;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  align-items: center;
 }
 .wishlist-item:last-child { border-bottom: 0; }
-.wishlist-item { flex-wrap: wrap; align-items: center; }
-.wishlist-note { flex-basis: 100%; font-style: italic; }
+.wishlist-name { flex: 1; min-width: 0; }
+.wishlist-note { flex-basis: 100%; font-style: italic; overflow-wrap: anywhere; }
 .wishlist-note:empty { display: none; }
+.wishlist-note-input { flex-basis: 100%; }
 
 @media (max-width: 760px) {
   .layout { grid-template-columns: 1fr; }

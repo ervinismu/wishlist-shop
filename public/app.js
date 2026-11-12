@@ -86,6 +86,13 @@ async function saveNote(productId, note) {
   } catch (err) {
     console.error(err);
   }
+  focusEditNote(productId);
+}
+
+function focusEditNote(productId) {
+  for (const row of wishlistList.children) {
+    if (row.dataset.productId === productId) row.querySelector('.edit-note')?.focus();
+  }
 }
 
 function editNote(item, noteText, editButton) {
@@ -95,12 +102,24 @@ function editNote(item, noteText, editButton) {
   input.setAttribute('aria-label', `Note for ${item.product.name}`);
   const save = el('button', '', 'Save note');
   save.type = 'button';
+  const cancel = el('button', '', 'Cancel');
+  cancel.type = 'button';
+  cancel.setAttribute('aria-label', `Cancel editing note for ${item.product.name}`);
+  const close = () => {
+    input.replaceWith(noteText);
+    cancel.remove();
+    save.replaceWith(editButton);
+    editButton.focus();
+  };
   save.addEventListener('click', () => saveNote(item.productId, input.value));
+  cancel.addEventListener('click', close);
   input.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') save.click();
+    if (event.key === 'Escape') close();
   });
   noteText.replaceWith(input);
   editButton.replaceWith(save);
+  save.after(cancel);
   input.focus();
 }
 
@@ -185,7 +204,7 @@ function renderWishlist(items, total) {
       qty.setAttribute('aria-label', `Quantity of ${item.product.name}`);
       qty.addEventListener('change', () => changeQuantity(item.productId, Number(qty.value)));
       const noteText = el('span', 'wishlist-note', item.note ?? '');
-      const editNoteButton = el('button', '', 'Edit note');
+      const editNoteButton = el('button', 'edit-note', 'Edit note');
       editNoteButton.type = 'button';
       editNoteButton.setAttribute('aria-label', `Edit note for ${item.product.name}`);
       editNoteButton.addEventListener('click', () => editNote(item, noteText, editNoteButton));
@@ -193,9 +212,9 @@ function renderWishlist(items, total) {
         el('span', 'wishlist-name', item.product.name),
         qty,
         el('span', 'wishlist-price', formatPrice(item.product.price * item.quantity)),
-        noteText,
         editNoteButton,
         remove,
+        noteText,
       );
       return row;
     }),
