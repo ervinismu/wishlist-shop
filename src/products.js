@@ -20,10 +20,10 @@ export function findProduct(id) {
 // Discounts are fixed here. `target` is a product id (`productId`) or a whole `category`.
 // A discount is active from `startsAt` (inclusive) until `endsAt` (exclusive), as ISO dates/times (UTC).
 // Several active discounts on one product (its own and its category's) are added together, up to 100%.
-export const discounts = [
-  { category: 'Kitchen', percent: 20, startsAt: '2026-11-01', endsAt: '2026-12-01' },
-  { productId: 'p3', percent: 10, startsAt: '2026-11-15', endsAt: '2026-12-15' },
-];
+// No discounts are live until the team decides which ones. Example format:
+//   { category: 'Kitchen', percent: 20, startsAt: '2026-11-01', endsAt: '2026-12-01' },
+//   { productId: 'p3', percent: 10, startsAt: '2026-11-15', endsAt: '2026-12-15' },
+export const discounts = [];
 
 // Total percent off for a product at a moment in time (0 to 100).
 export function discountPercent(product, now = new Date(), list = discounts) {
