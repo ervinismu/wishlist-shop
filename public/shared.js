@@ -26,7 +26,7 @@ async function load() {
         row.append(
           el('span', 'wishlist-name', item.product.name),
           el('span', 'wishlist-qty-text', `× ${item.quantity}`),
-          el('span', 'wishlist-price', formatPrice(item.product.price * item.quantity)),
+          el('span', 'wishlist-price', formatPrice(item.product.salePrice * item.quantity)),
         );
         return row;
       }),

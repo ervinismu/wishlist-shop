@@ -16,7 +16,7 @@ let baseUrl;
 const store = createStore(); // no file: data stays in memory
 
 before(async () => {
-  server = createServer(createApp({ store }));
+  server = createServer(createApp({ store, discounts: [] }));
   await new Promise((resolve) => server.listen(0, resolve));
   baseUrl = `http://localhost:${server.address().port}`;
 });
@@ -604,5 +604,72 @@ describe('wishlist CSV', () => {
   test('POST is not allowed', async () => {
     const { status } = await api('/api/wishlist.csv', { method: 'POST' });
     assert.equal(status, 405);
+  });
+});
+
+describe('discounts', () => {
+  const NOW = new Date('2026-11-12T12:00:00Z');
+  const list = [
+    { category: 'Kitchen', percent: 20, startsAt: '2026-11-01', endsAt: '2026-12-01' },
+    { productId: 'p1', percent: 10, startsAt: '2026-11-10', endsAt: '2026-11-13' },
+    { productId: 'p2', percent: 50, startsAt: '2026-11-13', endsAt: '2026-12-01' }, // not started
+    { productId: 'p4', percent: 50, startsAt: '2026-10-01', endsAt: '2026-11-12T12:00:00Z' }, // just ended
+    { productId: 'p8', percent: 33, startsAt: '2026-11-01', endsAt: '2026-12-01' },
+  ];
+  let dServer;
+  let dUrl;
+  const dApi = async (path, options = {}) => {
+    const res = await fetch(dUrl + path, {
+      ...options,
+      headers: { 'Content-Type': 'application/json' },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+
+  before(async () => {
+    dServer = createServer(createApp({ store, now: () => NOW, discounts: list }));
+    await new Promise((resolve) => dServer.listen(0, resolve));
+    dUrl = `http://localhost:${dServer.address().port}`;
+  });
+  after(() => new Promise((resolve) => dServer.close(resolve)));
+
+  test('category and product discounts combine, only inside their dates', async () => {
+    const { body } = await dApi('/api/products');
+    const byId = Object.fromEntries(body.products.map((p) => [p.id, p]));
+    assert.equal(byId.p1.discountPercent, 30); // Kitchen 20 + product 10
+    assert.equal(byId.p1.price, 1800);
+    assert.equal(byId.p1.salePrice, 1260);
+    assert.equal(byId.p7.discountPercent, 20); // Kitchen only
+    assert.equal(byId.p7.salePrice, 2800);
+    assert.equal(byId.p2.discountPercent, 0); // not started
+    assert.equal(byId.p2.salePrice, 2400);
+    assert.equal(byId.p4.salePrice, 1500); // end is exclusive
+  });
+
+  test('fractions of a cent round up', async () => {
+    const { body } = await dApi('/api/products/p8'); // 900 * 67% = 603
+    assert.equal(body.product.salePrice, 603);
+    const { body: p5 } = await dApi('/api/products/p5');
+    assert.equal(p5.product.salePrice, 1200);
+  });
+
+  test('unknown product still returns 404', async () => {
+    assert.equal((await dApi('/api/products/nope')).status, 404);
+  });
+
+  test('wishlist, total, csv and shared list use the discounted price', async () => {
+    await dApi('/api/wishlist', { method: 'POST', body: { productId: 'p1', quantity: 2 } });
+    const added = await dApi('/api/wishlist', { method: 'POST', body: { productId: 'p8' } });
+    assert.equal(added.body.item.product.salePrice, 603);
+    const list2 = await dApi('/api/wishlist');
+    assert.equal(list2.body.items[0].product.salePrice, 1260);
+    assert.equal((await dApi('/api/wishlist/total')).body.total, 1260 * 2 + 603);
+    const csv = await (await fetch(`${dUrl}/api/wishlist.csv`)).text();
+    assert.match(csv, /Ceramic Mug,2,12\.60,25\.20/);
+    const share = await dApi('/api/share', { method: 'POST' });
+    const shared = await dApi(`/api/shared/${share.body.token}`);
+    assert.equal(shared.body.total, 1260 * 2 + 603);
+    store.reset();
   });
 });
