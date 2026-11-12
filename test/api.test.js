@@ -181,6 +181,72 @@ describe('removing from the wishlist', () => {
   });
 });
 
+describe('wishlist notes', () => {
+  const add = (productId) => api('/api/wishlist', { method: 'POST', body: { productId } });
+  const patch = (body, id = 'p1') => api(`/api/wishlist/${id}`, { method: 'PATCH', body });
+
+  test('saves a trimmed note, alone or with quantity, and lists it', async () => {
+    await add('p1');
+    const { status, body } = await patch({ note: '  for <Mum> & co  ' });
+    assert.equal(status, 200);
+    assert.equal(body.item.note, 'for <Mum> & co');
+    assert.equal(body.item.quantity, 1);
+    const both = await patch({ note: 'in blue', quantity: 3 });
+    assert.equal(both.body.item.note, 'in blue');
+    assert.equal(both.body.item.quantity, 3);
+    assert.equal((await api('/api/wishlist')).body.items[0].note, 'in blue');
+  });
+
+  test('items without a note have note null; empty note removes it', async () => {
+    await add('p1');
+    assert.equal((await api('/api/wishlist')).body.items[0].note, null);
+    await patch({ note: 'x' });
+    const cleared = await patch({ note: '   ' });
+    assert.equal(cleared.body.item.note, null);
+    assert.equal((await api('/api/wishlist')).body.items[0].note, null);
+  });
+
+  test('note errors: too long and non-string are 400, missing item is 404', async () => {
+    await add('p1');
+    assert.equal((await patch({ note: 'a'.repeat(200) })).status, 200);
+    const long = await patch({ note: ` ${'a'.repeat(201)} ` });
+    assert.equal(long.status, 400);
+    assert.equal(long.body.error, 'Notes can be at most 200 characters');
+    assert.equal((await patch({ note: 5 })).status, 400);
+    assert.equal((await patch({ note: null })).status, 400);
+    assert.equal((await patch({ note: 'hi' }, 'p2')).status, 404);
+  });
+
+  test('an invalid quantity does not save the note', async () => {
+    await add('p1');
+    assert.equal((await patch({ note: 'keep?', quantity: 99 })).status, 400);
+    assert.equal((await api('/api/wishlist')).body.items[0].note, null);
+  });
+
+  test('notes are private: the shared API leaves them out', async () => {
+    await add('p1');
+    await patch({ note: 'secret' });
+    const { body: share } = await api('/api/share', { method: 'POST' });
+    const shared = await api(`/api/shared/${share.token}`);
+    assert.equal(shared.status, 200);
+    assert.ok(!('note' in shared.body.items[0]));
+    assert.ok(!JSON.stringify(shared.body).includes('secret'));
+  });
+
+  test('notes survive a restart', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wishlist-'));
+    try {
+      const file = join(dir, 'db.json');
+      const first = createStore({ file });
+      first.addToWishlist('p3');
+      first.updateWishlistItem('p3', { note: 'for Mum' });
+      assert.equal(createStore({ file }).getWishlist()[0].note, 'for Mum');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('wishlist persistence', () => {
   test('the wishlist survives a restart', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'wishlist-'));

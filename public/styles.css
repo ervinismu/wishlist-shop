@@ -111,6 +111,9 @@ button:disabled { opacity: 0.5; cursor: default; }
   border-bottom: 1px solid var(--border);
 }
 .wishlist-item:last-child { border-bottom: 0; }
+.wishlist-item { flex-wrap: wrap; align-items: center; }
+.wishlist-note { flex-basis: 100%; font-style: italic; }
+.wishlist-note:empty { display: none; }
 
 @media (max-width: 760px) {
   .layout { grid-template-columns: 1fr; }
