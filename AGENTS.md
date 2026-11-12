@@ -27,6 +27,10 @@ Both `npm test` and `npm run lint` must pass before you finish.
    If a task truly needs a package, stop and ask in `.factory/question.md`.
 2. **Every change needs tests.** Add API tests to `test/api.test.js` (or a new
    `test/*.test.js` file). Cover the success case and at least one error case.
+   - Web page changes need behaviour tests too: import the module and drive it
+     with small fake elements (see `test/note-editor.test.js`), then check
+     what the user gets: text shown, focus, messages after a failure. A test
+     that only searches a source file for strings does not count.
 3. **Never weaken, skip or delete existing tests** to make them pass. If an
    existing test is wrong for the new behaviour, explain why in your summary.
 4. **Keep changes small and focused** on the issue. No unrelated refactors.
@@ -44,6 +48,13 @@ Both `npm test` and `npm run lint` must pass before you finish.
    - Set text with `textContent`, never `innerHTML`.
    - Show a clear message when an action fails.
    - Keep elements usable by keyboard; buttons are real `<button>` elements.
+   - Never lose keyboard focus: if an action hides, removes or re-renders the
+     focused element, move focus to a sensible element (for example the
+     button that reopens it). Focus must not fall back to `<body>`.
+   - Clear an old error message when the action later succeeds.
+   - When requests can overlap (typing, dropdowns, the first page load), ignore
+     responses that are out of date, as `searchProducts` in `public/app.js`
+     does with `productSearchId`.
 8. **Money** is always stored and calculated in cents. Format it only for display.
 9. **Business rules you are unsure about** (limits, wording, who can see what):
    don't guess. Ask in `.factory/question.md`.
