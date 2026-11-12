@@ -197,6 +197,12 @@ const routes = [
     return { status: 201, body: { token, path: `/shared/${token}` } };
   }],
 
+  // Stops sharing. Fine to call when nothing is shared.
+  ['DELETE', '/api/share', ({ store }) => {
+    store.clearShareToken();
+    return { shared: false };
+  }],
+
   ['GET', '/api/shared/:token', ({ params, store }) => {
     if (!store.isValidShareToken(params.token)) {
       throw new HttpError(404, "This wishlist link doesn't work");

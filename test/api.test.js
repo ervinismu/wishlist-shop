@@ -377,6 +377,36 @@ describe('sharing the wishlist', () => {
     assert.equal(again.body.token, body.token);
   });
 
+  test('DELETE /api/share revokes the link, and sharing again makes a new token', async () => {
+    const { body: first } = await api('/api/share', { method: 'POST' });
+    const del = await api('/api/share', { method: 'DELETE' });
+    assert.equal(del.status, 200);
+    assert.equal((await api(`/api/shared/${first.token}`)).status, 404);
+    assert.equal((await page(first.path)).status, 404);
+    const { body: second } = await api('/api/share', { method: 'POST' });
+    assert.notEqual(second.token, first.token);
+    assert.equal((await api(`/api/shared/${second.token}`)).status, 200);
+    assert.equal((await api(`/api/shared/${first.token}`)).status, 404);
+    assert.equal((await page(first.path)).status, 404);
+  });
+
+  test('DELETE /api/share works when nothing is shared', async () => {
+    assert.equal((await api('/api/share', { method: 'DELETE' })).status, 200);
+  });
+
+  test('a revoked link stays revoked after a restart', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shop-'));
+    try {
+      const file = join(dir, 'db.json');
+      const first = createStore({ file });
+      const token = first.getOrCreateShareToken();
+      first.clearShareToken();
+      assert.equal(createStore({ file }).isValidShareToken(token), false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('the shared API shows the wishlist as it is now', async () => {
     await api('/api/wishlist', { method: 'POST', body: { productId: 'p1' } });
     const { body: share } = await api('/api/share', { method: 'POST' });

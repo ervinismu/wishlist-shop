@@ -272,6 +272,20 @@ shareButton.addEventListener('click', async () => {
   }
 });
 
+document.getElementById('unshare-button').addEventListener('click', async () => {
+  shareStatus.textContent = '';
+  try {
+    const res = await fetch('/api/share', { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    shareResult.hidden = true;
+    shareLink.value = '';
+    shareStatus.textContent = 'Sharing is off. The old link no longer works.';
+  } catch (err) {
+    console.error(err);
+    shareStatus.textContent = `Could not stop sharing: ${err.message}`;
+  }
+});
+
 copyButton.addEventListener('click', async () => {
   shareStatus.textContent = '';
   try {
