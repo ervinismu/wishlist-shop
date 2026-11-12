@@ -73,6 +73,47 @@ describe('products', () => {
     assert.deepEqual(body.products, []);
   });
 
+  test('every product has the right category', async () => {
+    const { body } = await api('/api/products');
+    const byName = Object.fromEntries(body.products.map((p) => [p.name, p.category]));
+    assert.deepEqual(byName, {
+      'Ceramic Mug': 'Kitchen',
+      'Bamboo Cutting Board': 'Kitchen',
+      'Desk Plant': 'Home',
+      'Scented Candle': 'Home',
+      'Notebook Set': 'Stationery',
+      'Wool Socks': 'Clothing',
+      'Linen Tote Bag': 'Accessories',
+      'Enamel Pin': 'Accessories',
+    });
+  });
+
+  test('GET /api/categories returns names sorted A to Z', async () => {
+    const { status, body } = await api('/api/categories');
+    assert.equal(status, 200);
+    assert.deepEqual(body.categories, ['Accessories', 'Clothing', 'Home', 'Kitchen', 'Stationery']);
+  });
+
+  test('GET /api/products?category= filters ignoring case', async () => {
+    const { status, body } = await api('/api/products?category=hOmE');
+    assert.equal(status, 200);
+    assert.deepEqual(body.products.map((p) => p.name).sort(), ['Desk Plant', 'Scented Candle']);
+  });
+
+  test('GET /api/products?category= with an unknown category returns 400', async () => {
+    const { status, body } = await api('/api/products?category=toys');
+    assert.equal(status, 400);
+    assert.equal(body.error, 'Unknown category');
+  });
+
+  test('category and q must both match', async () => {
+    const both = await api('/api/products?category=kitchen&q=mug');
+    assert.deepEqual(both.body.products.map((p) => p.name), ['Ceramic Mug']);
+    const none = await api('/api/products?category=home&q=mug');
+    assert.equal(none.status, 200);
+    assert.deepEqual(none.body.products, []);
+  });
+
   test('a product found by search can be added to the wishlist', async () => {
     const [found] = (await api('/api/products?q=mug')).body.products;
     const added = await api('/api/wishlist', { method: 'POST', body: { productId: found.id } });
