@@ -19,17 +19,19 @@ async function load() {
     const token = window.location.pathname.split('/').pop();
     const res = await fetch(`/api/shared/${encodeURIComponent(token)}`);
     if (!res.ok) throw new Error(`Request failed (${res.status})`);
-    const { items } = await res.json();
+    const { items, total } = await res.json();
     list.replaceChildren(
       ...items.map((item) => {
         const row = el('li', 'wishlist-item');
         row.append(
           el('span', 'wishlist-name', item.product.name),
-          el('span', 'wishlist-price', formatPrice(item.product.price)),
+          el('span', 'wishlist-qty-text', `× ${item.quantity}`),
+          el('span', 'wishlist-price', formatPrice(item.product.price * item.quantity)),
         );
         return row;
       }),
     );
+    document.getElementById('shared-total').textContent = total > 0 ? `Total: ${formatPrice(total)}` : '';
     status.hidden = items.length > 0;
     status.textContent = 'This wishlist is empty.';
   } catch (err) {

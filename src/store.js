@@ -4,7 +4,7 @@
 // after every change. Tests use the in-memory store (no file).
 //
 // Shape of the stored data:
-//   { wishlist: [ { productId: "p1", addedAt: "2026-01-01T00:00:00.000Z" } ],
+//   { wishlist: [ { productId: "p1", addedAt: "2026-01-01T00:00:00.000Z", quantity: 1 } ],
 //     shareToken: null or a random string used in the share link }
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -13,6 +13,9 @@ import { dirname } from 'node:path';
 
 // Maximum number of items on the wishlist.
 export const MAX_WISHLIST_ITEMS = 100;
+
+// Highest quantity allowed for one wishlist item.
+export const MAX_QUANTITY = 10;
 
 const EMPTY = () => ({ wishlist: [], shareToken: null });
 
@@ -32,7 +35,7 @@ export function createStore({ file } = {}) {
   return {
     // Returns the wishlist entries, oldest first.
     getWishlist() {
-      return data.wishlist.map((entry) => ({ ...entry }));
+      return data.wishlist.map((entry) => ({ ...entry, quantity: entry.quantity ?? 1 }));
     },
 
     // Number of entries on the wishlist.
@@ -41,10 +44,19 @@ export function createStore({ file } = {}) {
     },
 
     // Adds a product to the wishlist. Returns the new entry, or null if it is already there.
-    addToWishlist(productId) {
+    addToWishlist(productId, quantity = 1) {
       if (data.wishlist.some((entry) => entry.productId === productId)) return null;
-      const entry = { productId, addedAt: new Date().toISOString() };
+      const entry = { productId, addedAt: new Date().toISOString(), quantity };
       data.wishlist.push(entry);
+      save();
+      return { ...entry };
+    },
+
+    // Sets the quantity of an item. Returns the updated entry, or null if it is not on the list.
+    setWishlistQuantity(productId, quantity) {
+      const entry = data.wishlist.find((e) => e.productId === productId);
+      if (!entry) return null;
+      entry.quantity = quantity;
       save();
       return { ...entry };
     },
