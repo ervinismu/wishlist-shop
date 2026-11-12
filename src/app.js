@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { categories, findProduct, products } from './products.js';
+import { categories, discounts as defaultDiscounts, findProduct, products, withDiscount } from './products.js';
 import { MAX_NOTE_LENGTH, MAX_QUANTITY, MAX_WISHLIST_ITEMS } from './store.js';
 
 const PUBLIC_DIR = resolve(fileURLToPath(new URL('../public', import.meta.url)));
@@ -58,16 +58,17 @@ export async function readJsonBody(req) {
 }
 
 // Wishlist entries joined with their product details.
-function wishlistView(store) {
+function wishlistView(store, priced) {
   return store
     .getWishlist()
     .map((entry) => ({ ...entry, product: findProduct(entry.productId) }))
-    .filter((item) => item.product !== null);
+    .filter((item) => item.product !== null)
+    .map((item) => ({ ...item, product: priced(item.product) }));
 }
 
-// Total price of wishlist items in cents (price x quantity).
+// Total price of wishlist items in cents (sale price x quantity).
 function totalCents(items) {
-  return items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  return items.reduce((sum, item) => sum + item.product.salePrice * item.quantity, 0);
 }
 
 // Makes one CSV field safe: text a spreadsheet could run as a formula gets a leading
@@ -83,7 +84,7 @@ const dollars = (cents) => (cents / 100).toFixed(2);
 function wishlistCsv(items) {
   const rows = [['Name', 'Quantity', 'Unit price', 'Line total', 'Note']];
   for (const { product, quantity, note } of items) {
-    rows.push([product.name, quantity, dollars(product.price), dollars(product.price * quantity), note]);
+    rows.push([product.name, quantity, dollars(product.salePrice), dollars(product.salePrice * quantity), note]);
   }
   return rows.map((row) => row.map(csvField).join(',')).join('\r\n') + '\r\n';
 }
@@ -91,8 +92,8 @@ function wishlistCsv(items) {
 const SORTS = {
   added: (a, b) => (a.addedAt < b.addedAt ? -1 : a.addedAt > b.addedAt ? 1 : 0),
   name: (a, b) => a.product.name.localeCompare(b.product.name),
-  'price-asc': (a, b) => a.product.price - b.product.price,
-  'price-desc': (a, b) => b.product.price - a.product.price,
+  'price-asc': (a, b) => a.product.salePrice - b.product.salePrice,
+  'price-desc': (a, b) => b.product.salePrice - a.product.salePrice,
 };
 
 function parseQuantity(value) {
@@ -122,32 +123,34 @@ const routes = [
 
   // Optional query: q=text to match in the name (ignores case and surrounding spaces),
   // category=name (ignores case). Both must match when used together.
-  ['GET', '/api/products', ({ url }) => {
+  ['GET', '/api/products', ({ url, priced }) => {
     const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
     const category = (url.searchParams.get('category') ?? '').trim().toLowerCase();
     if (category !== '' && !categories.some((c) => c.toLowerCase() === category)) {
       throw new HttpError(400, 'Unknown category');
     }
     return {
-      products: products.filter((product) => product.name.toLowerCase().includes(q)
-        && (category === '' || product.category.toLowerCase() === category)),
+      products: products
+        .filter((product) => product.name.toLowerCase().includes(q)
+          && (category === '' || product.category.toLowerCase() === category))
+        .map(priced),
     };
   }],
 
-  ['GET', '/api/products/:id', ({ params }) => {
+  ['GET', '/api/products/:id', ({ params, priced }) => {
     const product = findProduct(params.id);
     if (!product) throw new HttpError(404, 'Product not found');
-    return { product };
+    return { product: priced(product) };
   }],
 
   // Optional query: sort=added|name|price-asc|price-desc, q=text to match in the name.
-  ['GET', '/api/wishlist', ({ store, url }) => {
+  ['GET', '/api/wishlist', ({ store, url, priced }) => {
     const sort = url.searchParams.get('sort') ?? 'added';
     if (!Object.hasOwn(SORTS, sort)) {
       throw new HttpError(400, 'sort must be one of: added, name, price-asc, price-desc');
     }
     const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
-    const all = wishlistView(store);
+    const all = wishlistView(store, priced);
     const items = all
       .filter((item) => item.product.name.toLowerCase().includes(q))
       .sort(SORTS[sort]);
@@ -155,28 +158,28 @@ const routes = [
   }],
 
   // The owner's wishlist as a CSV download, oldest first. There is no CSV for shared links.
-  ['GET', '/api/wishlist.csv', ({ store }) => ({
+  ['GET', '/api/wishlist.csv', ({ store, priced }) => ({
     raw: {
       type: 'text/csv; charset=utf-8',
       headers: { 'Content-Disposition': 'attachment; filename="wishlist.csv"' },
-      text: wishlistCsv(wishlistView(store).sort(SORTS.added)),
+      text: wishlistCsv(wishlistView(store, priced).sort(SORTS.added)),
     },
   })],
 
   // Total of everything on the wishlist in cents (price x quantity), whatever a filter shows.
-  ['GET', '/api/wishlist/total', ({ store }) => ({ total: totalCents(wishlistView(store)) })],
+  ['GET', '/api/wishlist/total', ({ store, priced }) => ({ total: totalCents(wishlistView(store, priced)) })],
 
-  ['PATCH', '/api/wishlist/:productId', async ({ req, params, store }) => {
+  ['PATCH', '/api/wishlist/:productId', async ({ req, params, store, priced }) => {
     const { quantity, note } = (await readJsonBody(req)) ?? {};
     if (quantity !== undefined || note === undefined) parseQuantity(quantity);
     const update = { quantity };
     if (note !== undefined) update.note = parseNote(note);
     const entry = store.updateWishlistItem(params.productId, update);
     if (!entry) throw new HttpError(404, 'Product is not in your wishlist');
-    return { item: { ...entry, product: findProduct(entry.productId) } };
+    return { item: { ...entry, product: priced(findProduct(entry.productId)) } };
   }],
 
-  ['POST', '/api/wishlist', async ({ req, store }) => {
+  ['POST', '/api/wishlist', async ({ req, store, priced }) => {
     const { productId, quantity = 1 } = (await readJsonBody(req)) ?? {};
     if (typeof productId !== 'string' || productId === '') {
       throw new HttpError(400, 'productId must be a string');
@@ -189,7 +192,7 @@ const routes = [
     }
     const entry = store.addToWishlist(productId, quantity);
     if (!entry) throw new HttpError(409, 'Product is already in your wishlist');
-    return { status: 201, body: { item: { ...entry, product } } };
+    return { status: 201, body: { item: { ...entry, product: priced(product) } } };
   }],
 
   // Is sharing on? Does not create a token.
@@ -209,12 +212,12 @@ const routes = [
     return { shared: false };
   }],
 
-  ['GET', '/api/shared/:token', ({ params, store }) => {
+  ['GET', '/api/shared/:token', ({ params, store, priced }) => {
     if (!store.isValidShareToken(params.token)) {
       throw new HttpError(404, "This wishlist link doesn't work");
     }
     // Notes are private: never include them on the shared list.
-    const items = wishlistView(store).map(({ note, ...item }) => item);
+    const items = wishlistView(store, priced).map(({ note, ...item }) => item);
     return { items, total: totalCents(items) };
   }],
 
@@ -301,7 +304,8 @@ async function serveSharedPage(token, store, res) {
 
 // ---------------------------------------------------------------- app
 
-export function createApp({ store }) {
+// `now` and `discounts` can be replaced in tests.
+export function createApp({ store, now = () => new Date(), discounts = defaultDiscounts }) {
   return async function handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
     const { pathname } = url;
@@ -313,7 +317,9 @@ export function createApp({ store }) {
             ? new HttpError(405, 'Method not allowed')
             : new HttpError(404, 'Not found');
         }
-        const result = await match.handler({ req, url, params: match.params, store });
+        const result = await match.handler({
+          req, url, params: match.params, store, priced: (product) => withDiscount(product, now(), discounts),
+        });
         if (result?.raw) {
           const { type, headers, text } = result.raw;
           res.writeHead(200, { 'Content-Type': type, 'Content-Length': Buffer.byteLength(text), ...headers });

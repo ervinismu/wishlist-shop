@@ -23,6 +23,20 @@ export function formatPrice(cents) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 }
 
+// Price line: with a discount, a "-20%" badge, the old price crossed out and the new price.
+function priceBlock(product) {
+  const block = el('p', 'product-price');
+  if (!product.discountPercent) {
+    block.textContent = formatPrice(product.price);
+    return block;
+  }
+  const badge = el('span', 'discount-badge', `-${product.discountPercent}%`);
+  const was = el('s', 'price-was', formatPrice(product.price));
+  was.setAttribute('aria-label', `Was ${formatPrice(product.price)}`);
+  block.append(badge, ' ', was, ' ', el('span', 'price-now', formatPrice(product.salePrice)));
+  return block;
+}
+
 async function getJson(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url} returned ${res.status}`);
@@ -162,7 +176,7 @@ function renderProducts() {
         el('h3', 'product-name', product.name),
         el('p', 'product-category', product.category),
         el('p', 'product-description', product.description),
-        el('p', 'product-price', formatPrice(product.price)),
+        priceBlock(product),
         button,
       );
       return card;
@@ -201,7 +215,7 @@ function renderWishlist(items, total) {
       row.append(
         el('span', 'wishlist-name', item.product.name),
         qty,
-        el('span', 'wishlist-price', formatPrice(item.product.price * item.quantity)),
+        el('span', 'wishlist-price', formatPrice(item.product.salePrice * item.quantity)),
         editNoteButton,
         remove,
         noteText,
