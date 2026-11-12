@@ -192,6 +192,12 @@ const routes = [
     return { status: 201, body: { item: { ...entry, product } } };
   }],
 
+  // Is sharing on? Does not create a token.
+  ['GET', '/api/share', ({ store }) => {
+    const token = store.getShareToken();
+    return token ? { shared: true, token, path: `/shared/${token}` } : { shared: false };
+  }],
+
   ['POST', '/api/share', ({ store }) => {
     const token = store.getOrCreateShareToken();
     return { status: 201, body: { token, path: `/shared/${token}` } };

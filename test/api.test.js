@@ -390,6 +390,18 @@ describe('sharing the wishlist', () => {
     assert.equal((await page(first.path)).status, 404);
   });
 
+  test('GET /api/share reports the state without creating a token', async () => {
+    const off = await api('/api/share');
+    assert.equal(off.status, 200);
+    assert.deepEqual(off.body, { shared: false });
+    assert.deepEqual((await api('/api/share')).body, { shared: false });
+    const { body: made } = await api('/api/share', { method: 'POST' });
+    const on = await api('/api/share');
+    assert.deepEqual(on.body, { shared: true, token: made.token, path: made.path });
+    await api('/api/share', { method: 'DELETE' });
+    assert.deepEqual((await api('/api/share')).body, { shared: false });
+  });
+
   test('DELETE /api/share works when nothing is shared', async () => {
     assert.equal((await api('/api/share', { method: 'DELETE' })).status, 200);
   });
