@@ -64,6 +64,46 @@ async function changeQuantity(productId, quantity) {
   }
 }
 
+async function saveNote(productId, note) {
+  actionStatus.textContent = '';
+  try {
+    const res = await fetch(`/api/wishlist/${encodeURIComponent(productId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed (${res.status})`);
+    }
+  } catch (err) {
+    console.error(err);
+    actionStatus.textContent = `Could not save the note: ${err.message}`;
+    return;
+  }
+  try {
+    await refreshWishlist();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function editNote(item, noteText, editButton) {
+  const input = el('input', 'wishlist-note-input');
+  input.type = 'text';
+  input.value = item.note ?? '';
+  input.setAttribute('aria-label', `Note for ${item.product.name}`);
+  const save = el('button', '', 'Save note');
+  save.type = 'button';
+  save.addEventListener('click', () => saveNote(item.productId, input.value));
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') save.click();
+  });
+  noteText.replaceWith(input);
+  editButton.replaceWith(save);
+  input.focus();
+}
+
 async function addToWishlist(productId) {
   actionStatus.textContent = '';
   try {
@@ -144,10 +184,17 @@ function renderWishlist(items, total) {
       qty.value = String(item.quantity);
       qty.setAttribute('aria-label', `Quantity of ${item.product.name}`);
       qty.addEventListener('change', () => changeQuantity(item.productId, Number(qty.value)));
+      const noteText = el('span', 'wishlist-note', item.note ?? '');
+      const editNoteButton = el('button', '', 'Edit note');
+      editNoteButton.type = 'button';
+      editNoteButton.setAttribute('aria-label', `Edit note for ${item.product.name}`);
+      editNoteButton.addEventListener('click', () => editNote(item, noteText, editNoteButton));
       row.append(
         el('span', 'wishlist-name', item.product.name),
         qty,
         el('span', 'wishlist-price', formatPrice(item.product.price * item.quantity)),
+        noteText,
+        editNoteButton,
         remove,
       );
       return row;

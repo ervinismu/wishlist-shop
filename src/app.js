@@ -8,7 +8,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { findProduct, products } from './products.js';
-import { MAX_QUANTITY, MAX_WISHLIST_ITEMS } from './store.js';
+import { MAX_NOTE_LENGTH, MAX_QUANTITY, MAX_WISHLIST_ITEMS } from './store.js';
 
 const PUBLIC_DIR = resolve(fileURLToPath(new URL('../public', import.meta.url)));
 const MAX_BODY_BYTES = 100_000;
@@ -84,6 +84,16 @@ function parseQuantity(value) {
   return value;
 }
 
+// Returns the trimmed note, or null when it is empty (which removes the note).
+function parseNote(value) {
+  if (typeof value !== 'string') throw new HttpError(400, 'Note must be text');
+  const note = value.trim();
+  if ([...note].length > MAX_NOTE_LENGTH) {
+    throw new HttpError(400, `Notes can be at most ${MAX_NOTE_LENGTH} characters`);
+  }
+  return note === '' ? null : note;
+}
+
 // ---------------------------------------------------------------- routes
 // Each route: [METHOD, path pattern, handler]. `:name` matches one path segment.
 
@@ -116,9 +126,11 @@ const routes = [
   ['GET', '/api/wishlist/total', ({ store }) => ({ total: totalCents(wishlistView(store)) })],
 
   ['PATCH', '/api/wishlist/:productId', async ({ req, params, store }) => {
-    const { quantity } = (await readJsonBody(req)) ?? {};
-    parseQuantity(quantity);
-    const entry = store.setWishlistQuantity(params.productId, quantity);
+    const { quantity, note } = (await readJsonBody(req)) ?? {};
+    if (quantity !== undefined || note === undefined) parseQuantity(quantity);
+    const update = { quantity };
+    if (note !== undefined) update.note = parseNote(note);
+    const entry = store.updateWishlistItem(params.productId, update);
     if (!entry) throw new HttpError(404, 'Product is not in your wishlist');
     return { item: { ...entry, product: findProduct(entry.productId) } };
   }],
@@ -148,7 +160,8 @@ const routes = [
     if (!store.isValidShareToken(params.token)) {
       throw new HttpError(404, "This wishlist link doesn't work");
     }
-    const items = wishlistView(store);
+    // Notes are private: never include them on the shared list.
+    const items = wishlistView(store).map(({ note, ...item }) => item);
     return { items, total: totalCents(items) };
   }],
 
