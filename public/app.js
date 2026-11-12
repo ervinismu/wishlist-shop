@@ -7,6 +7,11 @@ const wishlistList = document.getElementById('wishlist-list');
 const wishlistStatus = document.getElementById('wishlist-status');
 const actionStatus = document.getElementById('action-status');
 
+const wishlistTotal = document.getElementById('wishlist-total');
+const searchInput = document.getElementById('wishlist-search');
+const sortSelect = document.getElementById('wishlist-sort');
+const MAX_QUANTITY = 10;
+
 let products = [];
 let wishlistIds = new Set();
 
@@ -27,6 +32,38 @@ function el(tag, className, text) {
   return node;
 }
 
+async function refreshWishlist() {
+  const params = new URLSearchParams({ sort: sortSelect.value, q: searchInput.value });
+  const [{ items }, { total }] = await Promise.all([
+    getJson(`/api/wishlist?${params}`),
+    getJson('/api/wishlist/total'),
+  ]);
+  renderWishlist(items, total);
+}
+
+async function changeQuantity(productId, quantity) {
+  actionStatus.textContent = '';
+  try {
+    const res = await fetch(`/api/wishlist/${encodeURIComponent(productId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed (${res.status})`);
+    }
+  } catch (err) {
+    console.error(err);
+    actionStatus.textContent = `Could not change the quantity: ${err.message}`;
+  }
+  try {
+    await refreshWishlist();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 async function addToWishlist(productId) {
   actionStatus.textContent = '';
   try {
@@ -42,8 +79,7 @@ async function addToWishlist(productId) {
       // 409: already in the list, or the list is full. Show why, then refresh.
       actionStatus.textContent = message;
     }
-    const { items } = await getJson('/api/wishlist');
-    renderWishlist(items);
+    await refreshWishlist();
   } catch (err) {
     console.error(err);
     actionStatus.textContent = `Could not add to wishlist: ${err.message}`;
@@ -59,8 +95,7 @@ async function removeFromWishlist(productId) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || `Request failed (${res.status})`);
     }
-    const { items } = await getJson('/api/wishlist');
-    renderWishlist(items);
+    await refreshWishlist();
   } catch (err) {
     console.error(err);
     actionStatus.textContent = `Could not remove from wishlist: ${err.message}`;
@@ -90,7 +125,7 @@ function renderProducts() {
   productsStatus.textContent = 'No products yet.';
 }
 
-function renderWishlist(items) {
+function renderWishlist(items, total) {
   wishlistIds = new Set(items.map((item) => item.productId));
   renderProducts();
   wishlistList.replaceChildren(
@@ -101,17 +136,34 @@ function renderWishlist(items) {
       remove.type = 'button';
       remove.setAttribute('aria-label', `Remove ${item.product.name} from wishlist`);
       remove.addEventListener('click', () => removeFromWishlist(item.productId));
+      const qty = el('input', 'wishlist-qty');
+      qty.type = 'number';
+      qty.min = '1';
+      qty.max = String(MAX_QUANTITY);
+      qty.step = '1';
+      qty.value = String(item.quantity);
+      qty.setAttribute('aria-label', `Quantity of ${item.product.name}`);
+      qty.addEventListener('change', () => changeQuantity(item.productId, Number(qty.value)));
       row.append(
         el('span', 'wishlist-name', item.product.name),
-        el('span', 'wishlist-price', formatPrice(item.product.price)),
+        qty,
+        el('span', 'wishlist-price', formatPrice(item.product.price * item.quantity)),
         remove,
       );
       return row;
     }),
   );
   wishlistStatus.hidden = items.length > 0;
-  wishlistStatus.textContent = 'Your wishlist is empty.';
+  const filtering = searchInput.value.trim() !== '';
+  wishlistStatus.textContent = filtering ? 'No items match your search.' : 'Your wishlist is empty.';
+  wishlistTotal.textContent = total > 0 ? `Total: ${formatPrice(total)}` : '';
 }
+
+searchInput.addEventListener('input', () => refreshWishlist().catch((err) => {
+  console.error(err);
+  actionStatus.textContent = `Could not update the wishlist: ${err.message}`;
+}));
+sortSelect.addEventListener('change', () => searchInput.dispatchEvent(new Event('input')));
 
 const shareButton = document.getElementById('share-button');
 const shareResult = document.getElementById('share-result');
@@ -147,12 +199,9 @@ copyButton.addEventListener('click', async () => {
 
 async function load() {
   try {
-    const [{ products: loaded }, { items }] = await Promise.all([
-      getJson('/api/products'),
-      getJson('/api/wishlist'),
-    ]);
+    const { products: loaded } = await getJson('/api/products');
     products = loaded;
-    renderWishlist(items);
+    await refreshWishlist();
   } catch (err) {
     console.error(err);
     productsStatus.textContent = 'Could not load the shop. Please refresh.';

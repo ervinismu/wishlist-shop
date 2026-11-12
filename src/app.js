@@ -8,7 +8,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { findProduct, products } from './products.js';
-import { MAX_WISHLIST_ITEMS } from './store.js';
+import { MAX_QUANTITY, MAX_WISHLIST_ITEMS } from './store.js';
 
 const PUBLIC_DIR = resolve(fileURLToPath(new URL('../public', import.meta.url)));
 const MAX_BODY_BYTES = 100_000;
@@ -65,6 +65,25 @@ function wishlistView(store) {
     .filter((item) => item.product !== null);
 }
 
+// Total price of wishlist items in cents (price x quantity).
+function totalCents(items) {
+  return items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+}
+
+const SORTS = {
+  added: (a, b) => (a.addedAt < b.addedAt ? -1 : a.addedAt > b.addedAt ? 1 : 0),
+  name: (a, b) => a.product.name.localeCompare(b.product.name),
+  'price-asc': (a, b) => a.product.price - b.product.price,
+  'price-desc': (a, b) => b.product.price - a.product.price,
+};
+
+function parseQuantity(value) {
+  if (!Number.isInteger(value) || value < 1 || value > MAX_QUANTITY) {
+    throw new HttpError(400, `Quantity must be a whole number from 1 to ${MAX_QUANTITY}`);
+  }
+  return value;
+}
+
 // ---------------------------------------------------------------- routes
 // Each route: [METHOD, path pattern, handler]. `:name` matches one path segment.
 
@@ -79,19 +98,43 @@ const routes = [
     return { product };
   }],
 
-  ['GET', '/api/wishlist', ({ store }) => ({ items: wishlistView(store) })],
+  // Optional query: sort=added|name|price-asc|price-desc, q=text to match in the name.
+  ['GET', '/api/wishlist', ({ store, url }) => {
+    const sort = url.searchParams.get('sort') ?? 'added';
+    if (!Object.hasOwn(SORTS, sort)) {
+      throw new HttpError(400, 'sort must be one of: added, name, price-asc, price-desc');
+    }
+    const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+    const all = wishlistView(store);
+    const items = all
+      .filter((item) => item.product.name.toLowerCase().includes(q))
+      .sort(SORTS[sort]);
+    return { items };
+  }],
+
+  // Total of everything on the wishlist in cents (price x quantity), whatever a filter shows.
+  ['GET', '/api/wishlist/total', ({ store }) => ({ total: totalCents(wishlistView(store)) })],
+
+  ['PATCH', '/api/wishlist/:productId', async ({ req, params, store }) => {
+    const { quantity } = (await readJsonBody(req)) ?? {};
+    parseQuantity(quantity);
+    const entry = store.setWishlistQuantity(params.productId, quantity);
+    if (!entry) throw new HttpError(404, 'Product is not in your wishlist');
+    return { item: { ...entry, product: findProduct(entry.productId) } };
+  }],
 
   ['POST', '/api/wishlist', async ({ req, store }) => {
-    const { productId } = (await readJsonBody(req)) ?? {};
+    const { productId, quantity = 1 } = (await readJsonBody(req)) ?? {};
     if (typeof productId !== 'string' || productId === '') {
       throw new HttpError(400, 'productId must be a string');
     }
+    parseQuantity(quantity);
     const product = findProduct(productId);
     if (!product) throw new HttpError(404, 'Product not found');
     if (store.countWishlist() >= MAX_WISHLIST_ITEMS) {
       throw new HttpError(409, `Your wishlist is full (${MAX_WISHLIST_ITEMS} items)`);
     }
-    const entry = store.addToWishlist(productId);
+    const entry = store.addToWishlist(productId, quantity);
     if (!entry) throw new HttpError(409, 'Product is already in your wishlist');
     return { status: 201, body: { item: { ...entry, product } } };
   }],
@@ -105,7 +148,8 @@ const routes = [
     if (!store.isValidShareToken(params.token)) {
       throw new HttpError(404, "This wishlist link doesn't work");
     }
-    return { items: wishlistView(store) };
+    const items = wishlistView(store);
+    return { items, total: totalCents(items) };
   }],
 
   ['DELETE', '/api/wishlist/:productId', ({ params, store }) => {

@@ -274,3 +274,101 @@ describe('sharing the wishlist', () => {
     assert.equal((await page('/shared/%E0%A4%A')).status, 404);
   });
 });
+
+describe('wishlist quantity, total, sorting and filtering', () => {
+  const add = (productId, quantity) =>
+    api('/api/wishlist', { method: 'POST', body: quantity === undefined ? { productId } : { productId, quantity } });
+
+  test('new items have quantity 1; quantity can be given when adding', async () => {
+    const a = await add('p1');
+    assert.equal(a.body.item.quantity, 1);
+    const b = await add('p2', 3);
+    assert.equal(b.status, 201);
+    assert.equal(b.body.item.quantity, 3);
+  });
+
+  test('old stored entries without a quantity count as 1', async () => {
+    store.reset({ wishlist: [{ productId: 'p1', addedAt: '2026-01-01T00:00:00.000Z' }] });
+    const { body } = await api('/api/wishlist');
+    assert.equal(body.items[0].quantity, 1);
+    assert.equal((await api('/api/wishlist/total')).body.total, 1800);
+  });
+
+  test('invalid quantity when adding returns 400', async () => {
+    for (const quantity of [0, 11, 1.5, '2', null]) {
+      const res = await add('p1', quantity);
+      assert.equal(res.status, 400, `quantity ${JSON.stringify(quantity)}`);
+      assert.equal(res.body.error, 'Quantity must be a whole number from 1 to 10');
+    }
+    assert.deepEqual((await api('/api/wishlist')).body.items, []);
+  });
+
+  test('PATCH changes the quantity', async () => {
+    await add('p1');
+    const { status, body } = await api('/api/wishlist/p1', { method: 'PATCH', body: { quantity: 10 } });
+    assert.equal(status, 200);
+    assert.equal(body.item.quantity, 10);
+    assert.equal((await api('/api/wishlist')).body.items[0].quantity, 10);
+  });
+
+  test('PATCH errors: bad quantity is 400, missing item is 404', async () => {
+    await add('p1');
+    const bad = await api('/api/wishlist/p1', { method: 'PATCH', body: { quantity: 11 } });
+    assert.equal(bad.status, 400);
+    const missing = await api('/api/wishlist/p2', { method: 'PATCH', body: { quantity: 2 } });
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error, 'Product is not in your wishlist');
+  });
+
+  test('total is price x quantity in cents', async () => {
+    await add('p1', 2); // 1800 x 2
+    await add('p5', 1); // 1200
+    assert.equal((await api('/api/wishlist/total')).body.total, 4800);
+    const filtered = await api('/api/wishlist?q=mug');
+    assert.equal(filtered.body.items.length, 1);
+    assert.equal((await api('/api/wishlist/total')).body.total, 4800, 'total ignores the filter');
+  });
+
+  test('total of an empty wishlist is 0', async () => {
+    assert.deepEqual((await api('/api/wishlist/total')).body, { total: 0 });
+  });
+
+  test('sorting by name, price and date added', async () => {
+    store.reset({
+      wishlist: [
+        { productId: 'p3', addedAt: '2026-01-01T00:00:00.000Z', quantity: 1 }, // Desk Plant 3200
+        { productId: 'p1', addedAt: '2026-01-02T00:00:00.000Z', quantity: 1 }, // Ceramic Mug 1800
+        { productId: 'p8', addedAt: '2026-01-03T00:00:00.000Z', quantity: 1 }, // Enamel Pin 900
+      ],
+    });
+    const ids = async (query) => (await api(`/api/wishlist${query}`)).body.items.map((i) => i.productId);
+    assert.deepEqual(await ids(''), ['p3', 'p1', 'p8']);
+    assert.deepEqual(await ids('?sort=added'), ['p3', 'p1', 'p8']);
+    assert.deepEqual(await ids('?sort=name'), ['p1', 'p3', 'p8']);
+    assert.deepEqual(await ids('?sort=price-asc'), ['p8', 'p1', 'p3']);
+    assert.deepEqual(await ids('?sort=price-desc'), ['p3', 'p1', 'p8']);
+  });
+
+  test('unknown sort returns 400', async () => {
+    const { status, body } = await api('/api/wishlist?sort=colour');
+    assert.equal(status, 400);
+    assert.match(body.error, /sort must be one of/);
+  });
+
+  test('filtering by name ignores case; no match gives an empty list', async () => {
+    await add('p1');
+    await add('p2');
+    const hit = await api('/api/wishlist?q=TOTE');
+    assert.deepEqual(hit.body.items.map((i) => i.productId), ['p2']);
+    const none = await api('/api/wishlist?q=zzz');
+    assert.deepEqual(none.body.items, []);
+  });
+
+  test('the shared wishlist shows quantities and the total', async () => {
+    await add('p1', 2);
+    const { body: share } = await api('/api/share', { method: 'POST' });
+    const { body } = await api(`/api/shared/${share.token}`);
+    assert.equal(body.items[0].quantity, 2);
+    assert.equal(body.total, 3600);
+  });
+});

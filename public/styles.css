@@ -81,6 +81,9 @@ button:disabled { opacity: 0.5; cursor: default; }
   top: 16px;
 }
 
+.wishlist-controls { display: grid; gap: 4px; margin-bottom: 12px; }
+.wishlist-total { font-weight: 600; }
+.wishlist-qty { width: 4em; }
 .wishlist-items { list-style: none; padding: 0; margin: 0; }
 .wishlist-item {
   display: flex;
