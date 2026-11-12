@@ -257,6 +257,7 @@ const shareResult = document.getElementById('share-result');
 const shareLink = document.getElementById('share-link');
 const copyButton = document.getElementById('copy-button');
 const shareStatus = document.getElementById('share-status');
+const shareError = document.getElementById('share-error');
 
 function showShareLink(path) {
   shareLink.value = new URL(path, window.location.origin).href;
@@ -272,12 +273,13 @@ function showShareLink(path) {
     if (info.shared) showShareLink(info.path);
   } catch (err) {
     console.error(err);
-    shareStatus.textContent = `Could not check the share link: ${err.message}`;
+    shareError.textContent = `Could not check the share link: ${err.message}`;
   }
 })();
 
 shareButton.addEventListener('click', async () => {
   shareStatus.textContent = '';
+  shareError.textContent = '';
   try {
     const res = await fetch('/api/share', { method: 'POST' });
     if (!res.ok) throw new Error(`Request failed (${res.status})`);
@@ -285,12 +287,13 @@ shareButton.addEventListener('click', async () => {
     showShareLink(path);
   } catch (err) {
     console.error(err);
-    shareStatus.textContent = `Could not create a share link: ${err.message}`;
+    shareError.textContent = `Could not create a share link: ${err.message}`;
   }
 });
 
 document.getElementById('unshare-button').addEventListener('click', async () => {
   shareStatus.textContent = '';
+  shareError.textContent = '';
   try {
     const res = await fetch('/api/share', { method: 'DELETE' });
     if (!res.ok) throw new Error(`Request failed (${res.status})`);
@@ -299,19 +302,20 @@ document.getElementById('unshare-button').addEventListener('click', async () => 
     shareStatus.textContent = 'Sharing is off. The old link no longer works.';
   } catch (err) {
     console.error(err);
-    shareStatus.textContent = `Could not stop sharing: ${err.message}`;
+    shareError.textContent = `Could not stop sharing: ${err.message}`;
   }
 });
 
 copyButton.addEventListener('click', async () => {
   shareStatus.textContent = '';
+  shareError.textContent = '';
   try {
     await navigator.clipboard.writeText(shareLink.value);
     shareStatus.textContent = 'Link copied.';
   } catch (err) {
     console.error(err);
     shareLink.select();
-    shareStatus.textContent = 'Could not copy automatically. The link is selected: copy it by hand.';
+    shareError.textContent = 'Could not copy automatically. The link is selected: copy it by hand.';
   }
 });
 
@@ -342,6 +346,7 @@ async function load() {
     await refreshWishlist();
   } catch (err) {
     console.error(err);
+    productsStatus.setAttribute('role', 'alert');
     productsStatus.textContent = 'Could not load the shop. Please refresh.';
     wishlistStatus.textContent = '';
   }

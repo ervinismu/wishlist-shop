@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#wishlist">Skip to wishlist</a>
   <header class="site-header">
     <h1>Wishlist Shop</h1>
     <p class="tagline">Find something nice. Save it for later.</p>
@@ -24,14 +25,14 @@
           <option value="">All categories</option>
         </select>
       </div>
-      <p class="status" id="products-status">Loading products…</p>
+      <p class="status" id="products-status" role="status">Loading products…</p>
       <p class="status" id="action-status" role="alert"></p>
       <ul class="product-grid" id="product-list" data-testid="product-list"></ul>
     </section>
 
-    <aside class="wishlist" aria-labelledby="wishlist-title">
+    <aside class="wishlist" id="wishlist" tabindex="-1" aria-labelledby="wishlist-title">
       <h2 id="wishlist-title">Your wishlist</h2>
-      <p class="status" id="wishlist-status">Loading…</p>
+      <p class="status" id="wishlist-status" role="status">Loading…</p>
       <div class="wishlist-controls">
         <label for="wishlist-search">Search</label>
         <input type="search" id="wishlist-search" placeholder="Search by name">
@@ -54,7 +55,8 @@
         <button type="button" id="copy-button">Copy link</button>
         <button type="button" id="unshare-button">Stop sharing</button>
       </div>
-      <p class="status" id="share-status" role="alert"></p>
+      <p class="status" id="share-status" role="status"></p>
+      <p class="status" id="share-error" role="alert"></p>
     </aside>
   </main>
 
